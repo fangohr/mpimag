@@ -1,3 +1,7 @@
+dependencies:
+  pre:
+    - pip install pytest
+
 test:
   override:
     - make test
