@@ -1,0 +1,4 @@
+* Tasks
+** Task: Towards a single macrospin test. 
+*** TODO tests: Correct setup of Single macrospin simulation
+*** TODO tests: Single macrospin comparison with analytic solution 
