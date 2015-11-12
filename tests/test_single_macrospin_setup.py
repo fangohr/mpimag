@@ -30,18 +30,18 @@ def setup():
     return Macrospin()
 
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_set_coordinate():
     sim = setup()
 
     # test error is raised if user tries to call value of
     # coordinate before it has been set
     with pytest.raises(AttributeError):
-    	sim.coord
+        sim.coord
 
     # try to set coordinate with non-2D coordinate
     with pytest.raises(ValueError):
-        sim.coord = 0 
+        sim.coord = 0
 
     # try to set coordinate with 3D coordinate
     with pytest.raises(ValueError):
@@ -60,7 +60,7 @@ def test_set_Ms():
     # test error is raised if user tries to call value of
     # Ms before it has been set
     with pytest.raises(AttributeError):
-    	sim.Ms
+        sim.Ms
 
     # set Ms and assert this value is returned
     sim.Ms = 8.6e5
@@ -74,7 +74,7 @@ def test_set_alpha():
     # test error is raised if user tries to call value of
     # alpha before it has been set
     with pytest.raises(AttributeError):
-    	sim.alpha
+        sim.alpha
 
     # set alpha and assert this value is returned
     sim.alpha = 0.1
@@ -88,7 +88,7 @@ def test_set_gamma():
     # test error is raised if user tries to call value of
     # gamma before it has been set
     with pytest.raises(AttributeError):
-    	sim.gamma
+        sim.gamma
 
     # set gamma and assert this value is returned
     sim.gamma = 2.211e5
@@ -102,7 +102,7 @@ def test_set_zeeman():
     # test error is raised if user tries to call value of
     # Zeeman before it has been set
     with pytest.raises(AttributeError):
-    	sim.zeeman
+        sim.zeeman
 
     # try to set Zeeman with non-3D vector
     with pytest.raises(ValueError):
@@ -127,7 +127,7 @@ def test_set_m():
     # test error is raised if user tries to call value of
     # m before it has been set
     with pytest.raises(AttributeError):
-    	sim.m
+        sim.m
 
     # try to set m with non-3D vector
     with pytest.raises(ValueError):
