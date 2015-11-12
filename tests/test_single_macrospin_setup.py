@@ -30,7 +30,6 @@ def setup():
     return Macrospin()
 
 
-# @pytest.mark.xfail
 def test_set_coordinate():
     sim = setup()
 
@@ -53,7 +52,6 @@ def test_set_coordinate():
     assert np.all(sim.coord == (0, 0))
 
 
-@pytest.mark.xfail
 def test_set_Ms():
     sim = setup()
 
@@ -67,7 +65,6 @@ def test_set_Ms():
     assert (sim.Ms == 8.6e5)
 
 
-@pytest.mark.xfail
 def test_set_alpha():
     sim = setup()
 
@@ -81,7 +78,6 @@ def test_set_alpha():
     assert (sim.alpha == 0.1)
 
 
-@pytest.mark.xfail
 def test_set_gamma():
     sim = setup()
 
@@ -95,7 +91,6 @@ def test_set_gamma():
     assert (sim.gamma == 2.211e5)
 
 
-@pytest.mark.xfail
 def test_set_zeeman():
     sim = setup()
 
@@ -110,7 +105,7 @@ def test_set_zeeman():
 
     # try to set Zeeman with 2D vector
     with pytest.raises(ValueError):
-        sim.coord = [0, 0]
+        sim.zeeman = [0, 0]
 
     # set zeeman with 3D Vector (0,0, B/mu0) and assert these
     # values are returned when requested
@@ -120,7 +115,6 @@ def test_set_zeeman():
     assert np.all(sim.zeeman == [0, 0, B / mu0])
 
 
-@pytest.mark.xfail
 def test_set_m():
     sim = setup()
 
@@ -150,7 +144,6 @@ def test_set_m():
     assert np.all(sim.m == expected)
 
 
-@pytest.mark.xfail
 def test_sim_time():
     sim = setup()
 
