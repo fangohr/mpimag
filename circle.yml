@@ -6,7 +6,7 @@ dependencies:
   pre:
     - pip install pytest
     - pip install git+https://github.com/fangohr/micromagnetics.git
-    - pip scipy
+    - pip install scipy
 
 test:
   override:
