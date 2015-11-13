@@ -16,7 +16,7 @@ same times.
 
 The magnetisation, m is dependent on the LLG equation:
 
-    dm/dt = -g * (m x H) - g * a (m x m x Heff) / Ms
+    dm/dt = -g * (m x Heff) - g * a (m x m x Heff) / Ms
 
 where:
     g - the gamma value
@@ -58,7 +58,6 @@ def setup_macrospin():
     return sim
 
 
-@pytest.mark.xfail
 def test_run_until_zero_seconds():
     import micromagnetictestcases
 
@@ -76,11 +75,10 @@ def test_run_until_zero_seconds():
 
     mx_analytic = micromagnetictestcases.macrospin.solution(sim.alpha, sim.gamma, sim.zeeman[2], t_array)
 
-    assert np.allclose(mx_analytic, mx_computed, rtol=1e-05, atol=1e-08)
+    assert (mx_analytic == mx_computed)
 
 
-@pytest.mark.xfail
-def test_compare_with_analytical_sol():
+def test_compare_with_analytical_sol(do_plot=False):
     import micromagnetictestcases
 
     # create pre-setup simulation object
@@ -102,4 +100,18 @@ def test_compare_with_analytical_sol():
 
     mx_analytic = micromagnetictestcases.macrospin.solution(sim.alpha, sim.gamma, sim.zeeman[2], t_array)
 
-    assert np.allclose(mx_analytic, mx_computed, rtol=1e-05, atol=1e-08)
+    if do_plot:
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(8, 5))
+        plt.plot(t_array / 1e-9, mx_analytic, 'o', label='analytic')
+        plt.plot(t_array / 1e-9, mx_computed, linewidth=2, label='simulation')
+        plt.xlabel('t (ns)')
+        plt.ylabel('mx')
+        plt.grid()
+        plt.legend()
+        plt.savefig('macrospin.pdf', format='pdf', bbox_inches='tight')
+
+    assert np.allclose(mx_analytic, mx_computed, rtol=1e-05, atol=1e-05)
+
+if __name__ == '__main__':
+    test_compare_with_analytical_sol(do_plot=True)
