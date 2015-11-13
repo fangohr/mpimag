@@ -33,7 +33,14 @@ t           | The time, t associated with the   | int or float
 
 """
 import numpy as np
+import scipy.integrate
 
+def llg(m, t, heff, alpha, gamma):
+    # Computing dmdt
+    # First compute the cross products
+    mCrossH = np.cross(m, heff)
+    mCrossmCrossH = np.cross(m, mCrossH)
+    return (-1 * gamma * mCrossH) - (gamma * alpha * mCrossmCrossH)
 
 class Macrospin(object):
     """
@@ -198,3 +205,39 @@ class Macrospin(object):
         return self._t
 
     t = property(_get_t, _set_t)
+
+    # -------------------------------------------------------------------
+    # Effective field
+    # -------------------------------------------------------------------
+    def _compute_heff(self):
+        """
+        Computing the Effective field
+        """
+        self._heff = self._zeeman
+
+    # -------------------------------------------------------------------
+    # Solve LLG
+    # -------------------------------------------------------------------
+
+    def _compute_llg(self, t):
+        """
+        Compute the llg equation
+        """
+        # Compute the effective field
+        self._compute_heff()
+        # compute m
+        m  = scipy.integrate.odeint(llg, self._m, [self._t, t], args=(self._heff, self._alpha, self._gamma))
+        return m
+
+    # -------------------------------------------------------------------
+    # run until function
+    # -------------------------------------------------------------------
+    def run_until(self, t):
+        """
+        Run the simulation until the time, t.
+
+        Update the value of m accordingly.
+        """
+        m  = self._compute_llg(t)
+        self._m = [m[-1][0], m[-1][1], m[-1][2]]
+        self._t = t
