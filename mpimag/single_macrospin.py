@@ -33,7 +33,7 @@ t           | The time, t associated with the   | int or float
 
 """
 import numpy as np
-import scipy.integrate
+from scipy import integrate
 
 def llg(m, t, heff, alpha, gamma):
     # Computing dmdt
@@ -226,7 +226,7 @@ class Macrospin(object):
         # Compute the effective field
         self._compute_heff()
         # compute m
-        m  = scipy.integrate.odeint(llg, self._m, [self._t, t], args=(self._heff, self._alpha, self._gamma))
+        m  = integrate.odeint(llg, self._m, [self._t, t], args=(self._heff, self._alpha, self._gamma))
         return m
 
     # -------------------------------------------------------------------
