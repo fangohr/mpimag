@@ -33,6 +33,7 @@ t           | The time, t associated with the   | int or float
 
 """
 import numpy as np
+import scipy
 from scipy import integrate
 
 def llg(m, t, heff, alpha, gamma):
