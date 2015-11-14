@@ -1,15 +1,19 @@
+sudo: false    # use new infrastructure
 language: python
 python:
         - "2.7"
         - "3.5"
-before_install:
-        - sudo apt-get install -qq python-numpy python-scipy
+addons:
+  apt:
+    packages:
+    - python-numpy
+    - python-scipy
+    - python-pytest
 # commmand to make scipy work
 virtualenv:
         system_site_packages: true true
 # command to install dependencies
 install:
-        - pip install pytest
         - pip install git+https://github.com/fangohr/micromagnetics.git
 # command to run tests
 script:
