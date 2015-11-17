@@ -42,7 +42,7 @@ def setup_1d():
 	mesh = FDmesh1D(x0, x1, xn)
 	return mesh
 
-@pytest.mark.xfail
+
 def test_mesh_creation():
 	"""
 	The value of x0 should not be greater than x1.
@@ -53,7 +53,7 @@ def test_mesh_creation():
 	with pytest.raises(ValueError):
 		FDmesh1D(0, -10, 6)
 
-@pytest.mark.xfail
+
 def test_cells():
 	"""
 	Test that the correct number of cells are created
