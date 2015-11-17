@@ -61,5 +61,5 @@ def test_cells():
 	"""
 	mesh = setup_1d()
 
-	assert len(sim.cells == 5)
-	assert sim.cells == [1, 3, 5, 7, 9]
+	assert len(mesh.cells == 5)
+	assert (mesh.cells == [1, 3, 5, 7, 9]).all()
