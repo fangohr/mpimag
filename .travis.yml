@@ -1,7 +1,6 @@
 # using miniconda for python, to make installation of scipy easier.
 # Example script taken from conda docs:
 #   http://conda.pydata.org/docs/travis.html#using-conda-with-travis-ci
-sudo: false
 language: python
 python:
   # We don't actually use the Travis Python, but this keeps it organized.
