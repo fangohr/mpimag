@@ -44,13 +44,14 @@ class Macrospin(object):
     """
     Single Macrospin setup class
     """
-    def __init__(self):
+    def __init__(self, mesh):
         self._Ms = None
         self._alpha = None
         self._gamma = None
         self._zeeman = None
         self._m = None
-        self.t = 0.0
+        self._t = 0.0
+        self.mesh = mesh
 
     # -------------------------------------------------------------------
     # Ms property
