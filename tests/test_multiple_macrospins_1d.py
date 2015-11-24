@@ -71,8 +71,7 @@ def setup_macrospin():
     mesh = FDmesh1D(x0, x1, nx)
 
     # setup sim object
-    sim = Macrospin()
-    sim.mesh = mesh
+    sim = Macrospin(mesh)
     sim.Ms = Ms
     sim.alpha = alpha
     sim.gamma = gamma
@@ -81,7 +80,7 @@ def setup_macrospin():
 
     return sim
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_compare_with_analytical_sol(do_plot=False):
     import micromagnetictestcases
 
@@ -96,7 +95,7 @@ def test_compare_with_analytical_sol(do_plot=False):
     t_array = np.arange(0.0, t_total, t_step)
 
     # run simulation for specified time
-    mx_computed = np.ndarray(len(t_array, len(sim.cells))) # sim.cells is number of cells
+    mx_computed = np.ndarray((len(t_array), len(sim.mesh.cells))) # sim.cells is number of cells
     for ti, t in enumerate(t_array):
         # run simulation until specified time
         sim.run_until(t)
@@ -117,7 +116,7 @@ def test_compare_with_analytical_sol(do_plot=False):
 
     # For each time step compare mx value from each cell with the analytical value.
     # Return true or false for each time step.
-    compare_cells = [np.allclose(mx_computed[ti, :], mx) for ti, mx in enumerate(mx_analytic)]
+    compare_cells = [np.allclose(mx_computed[ti, :], mx, rtol=1e-05, atol=1e-05) for ti, mx in enumerate(mx_analytic)]
     # Assert all values are equal at each time step are equal to the analytical value.
     assert np.all(compare_cells)
 
