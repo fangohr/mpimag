@@ -33,12 +33,24 @@ import numpy as np
 import scipy
 from scipy import integrate
 
-def llg(m, t, heff, alpha, gamma):
+def llg(m_flat, t, heff_flat, alpha, gamma):
+    """
+    Computing the LLG equation.
+
+    Expects flattened arrays for m and heff. E.g. an array in the form:
+        [m(x0), m(y0), m(z0), m(x1), m(y1), m(z1), ...]
+
+    returns a flattened array
+
+    """
     # Computing dmdt
     # First compute the cross products
+    m = m_flat.reshape(-1, 3)
+    heff = heff_flat.reshape(-1, 3)
     mCrossH = np.cross(m, heff)
     mCrossmCrossH = np.cross(m, mCrossH)
-    return (-1 * gamma * mCrossH) - (gamma * alpha * mCrossmCrossH)
+    result = (-1 * gamma * mCrossH) - (gamma * alpha * mCrossmCrossH)
+    return result.flatten()
 
 class Macrospin(object):
     """
@@ -145,10 +157,15 @@ class Macrospin(object):
         if type(m) not in [list, np.ndarray]:
             raise ValueError('Expecting a 3D list')
         if np.shape(m) != (3,):
-            raise ValueError('Expecting a list of for [mx, my, mz]\
-                              List supplied is not of this\
-                              form.')
-        self._m = self._v_normalise(m)
+            raise ValueError('Expecting a zeeman in the form [mx, my, mz]\
+                              Supplied value is not of this form.')
+
+        m = np.array(m)
+        if self.mesh.dims == 0:
+            self._m = self._v_normalise(m)
+        if self.mesh.dims == 1:
+            m_normalised = self._v_normalise(m)
+            self._m = np.ones((len(self.mesh.cells), 3)) * m_normalised
 
     def _get_m(self):
         """
@@ -188,7 +205,11 @@ class Macrospin(object):
         """
         Computing the Effective field
         """
-        self._heff = self._zeeman
+        if self.mesh.dims == 0:
+            self._heff = self._zeeman
+        if self.mesh.dims == 1:
+            self._heff = self._zeeman * np.ones((len(self.mesh.cells), 3))
+        
 
     # -------------------------------------------------------------------
     # Solve LLG
@@ -201,7 +222,12 @@ class Macrospin(object):
         # Compute the effective field
         self._compute_heff()
         # compute m
-        m  = integrate.odeint(llg, self._m, [self._t, t], args=(self._heff, self._alpha, self._gamma))
+        m_flat = integrate.odeint(llg, self._m.flatten(), [self._t, t],
+                                args=(self._heff.flatten(), self._alpha, self._gamma))
+        if self.mesh.dims == 0:
+            m = m_flat[1]
+        if self.mesh.dims == 1:
+            m = m_flat[1].reshape(-1, 3)
         return m
 
     # -------------------------------------------------------------------
@@ -214,5 +240,5 @@ class Macrospin(object):
         Update the value of m accordingly.
         """
         m  = self._compute_llg(t)
-        self._m = [m[-1][0], m[-1][1], m[-1][2]]
+        self._m = m
         self._t = t
