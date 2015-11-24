@@ -29,6 +29,7 @@ The effective field, H, is only dependent on the Zeeman field, thus:
 import numpy as np
 import pytest
 from mpimag import Macrospin
+from mpimag import FDmesh0D
 
 
 def setup_macrospin():
@@ -47,8 +48,9 @@ def setup_macrospin():
     H = B/mu0
     m_init = [1, 0, 0]
     zeeman = [0, 0, H]
+    mesh = FDmesh0D()
 
-    sim = Macrospin()
+    sim = Macrospin(mesh)
     sim.Ms = Ms
     sim.alpha = alpha
     sim.gamma = gamma

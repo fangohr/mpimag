@@ -26,7 +26,9 @@ import pytest
 
 def setup():
     from mpimag import Macrospin
-    return Macrospin()
+    from mpimag import FDmesh0D
+    mesh = FDmesh0D()
+    return Macrospin(mesh)
 
 
 def test_set_Ms():
