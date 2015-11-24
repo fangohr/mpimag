@@ -5,6 +5,18 @@ Mesh Tests
 Tests for FD meshes 
 
 -------------------------------------------------------------------------
+0D meshes
+-------------------------------------------------------------------------
+parameters:
+	- none
+
+properties:
+	- dims - number of dimensions, 0
+
+tests:
+	- dims should equal 0
+
+-------------------------------------------------------------------------
 1D meshes
 -------------------------------------------------------------------------
 parameters:
@@ -14,14 +26,29 @@ parameters:
 
 properties:
 	- cells - x-coordinates of the centre of the cells
+	- dims - number of dimensions, 1
 
 tests:
 	- x1 should be greater that x0. Exception should be raised if not.
 	- correct number of cells created (should be nx-1)
 	- calculation of the cell coordinates.
+	- dims should equal 1
 """
 import numpy as np
 import pytest
+
+# ----------------------------------------------------------------------
+# 0D mesh tests
+# ----------------------------------------------------------------------
+
+def test_mesh0d():
+	from mpimag import FDmesh0D
+	mesh = FDmesh0D()
+	assert mesh.dims == 0
+
+# ----------------------------------------------------------------------
+# 1D mesh tests
+# ----------------------------------------------------------------------
 
 def setup_1d():
 	"""
@@ -43,18 +70,24 @@ def setup_1d():
 	return mesh
 
 
-def test_mesh_creation():
+def test_mesh1d_creation():
 	"""
 	The value of x0 should not be greater than x1.
 	Test that exception is raised if attempt is made to create mesh with
 	x0 > x1.
+
+	value of dims should be 1
 	"""
 	from mpimag import FDmesh1D
 	with pytest.raises(ValueError):
 		FDmesh1D(0, -10, 6)
 
+	mesh = setup_1d()
 
-def test_cells():
+	assert mesh.dims == 1
+
+
+def test_mesh1d_cells():
 	"""
 	Test that the correct number of cells are created
 	Test that the coordinates of the cells are correct.

@@ -8,7 +8,6 @@ Tests for the setup of a single macrospin
 A single macrospin is required. It is neccessary to specify the following
 parameters associated with it:
 
-- The coordinate where it is located in space (assuming cartesian)
 - Saturation Magnetisation, Ms
 - alpha
 - gamma
@@ -28,28 +27,6 @@ import pytest
 def setup():
     from mpimag import Macrospin
     return Macrospin()
-
-
-def test_set_coordinate():
-    sim = setup()
-
-    # test error is raised if user tries to call value of
-    # coordinate before it has been set
-    with pytest.raises(AttributeError):
-        sim.coord
-
-    # try to set coordinate with non-2D coordinate
-    with pytest.raises(ValueError):
-        sim.coord = 0
-
-    # try to set coordinate with 3D coordinate
-    with pytest.raises(ValueError):
-        sim.coord = (0, 0, 0)
-
-    # set coordinate with 2D coordinate (0,0) and assert these
-    # values are returned when requested
-    sim.coord = (0, 0)
-    assert np.all(sim.coord == (0, 0))
 
 
 def test_set_Ms():

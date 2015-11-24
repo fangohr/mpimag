@@ -4,6 +4,21 @@ Meshes
 =========================================================================
 
 -------------------------------------------------------------------------
+0D meshes
+-------------------------------------------------------------------------
+
+The 0D mesh is a simply a single spin at a point. It has the following
+properties associated with it:
+
+=========================================================================
+Property    | Description                       | Usage
+=========================================================================
+dims        | The number of dimensions, which   |
+		    | is 0.                             |
+=========================================================================
+
+
+-------------------------------------------------------------------------
 1D meshes
 -------------------------------------------------------------------------
 
@@ -20,6 +35,9 @@ nx          | The number of nodes               | int
 -------------------------------------------------------------------------
 cells       | The coordinates of the centres of | list [c0, c1,..., cn-1]
             | cells                             |
+-------------------------------------------------------------------------
+dims        | The number of dimensions, which   |
+		    | is 1.                             |
 =========================================================================
 
 Usage:
@@ -28,6 +46,24 @@ Usage:
 """
 
 import numpy as np
+
+class FDmesh0D(object):
+	"""
+	0D mesh
+
+	NOTE: Seems a bit pointless having a class for this. It has been
+	implemented so that there is consistency when meshes of different
+	dimensions are used. This will allow the Macrospin and future
+	Simulation classes to be more elegant.
+
+	"""
+	def __init__(self):
+		self._dims = 0
+
+	def _get_dims(self):
+		return self._dims
+
+	dims = property(fget=_get_dims)
 
 class FDmesh1D(object):
 	"""
@@ -41,6 +77,7 @@ class FDmesh1D(object):
 		self._x1 = x1
 		self._nx = nx
 		self._cells = self._calculate_cells()
+		self._dims = 1
 
 	def _calculate_cells(self):
 		"""
@@ -54,3 +91,8 @@ class FDmesh1D(object):
 		return self._cells
 
 	cells = property(fget=_get_cells)
+
+	def _get_dims(self):
+		return self._dims
+
+	dims = property(fget=_get_dims)
