@@ -17,11 +17,11 @@ alpha       | The alpha value of the Macrospin  | int or float
 -------------------------------------------------------------------------
 gamma       | The gamma value of the Macrospin  | int or float
 -------------------------------------------------------------------------
-zeeman      | The Zeeman field applied to the   | list [Hx, Hy, Hz]
-            | Macrospin (3D vector in list form)|
+zeeman      | The Zeeman field applied to the   | list or np.array
+            | Macrospin (3D vector)             | [Hx, Hy, Hz]
 -------------------------------------------------------------------------
-m           | The m field Macrospin (3D vector  | list [mx, my, mz]
-            | in list form)                     |
+m           | The m field Macrospin (3D vector) | list or np.array
+            |                                   | [mx, my, mz]
 -------------------------------------------------------------------------
 t           | The time, t associated with the   | int or float
             | Macrospin. Must be positive.      |
@@ -107,13 +107,12 @@ class Macrospin(object):
     # zeeman property
     # -------------------------------------------------------------------
     def _set_zeeman(self, zeeman):
-        if type(zeeman) != list:
-            raise ValueError('Expecting a 3D list')
+        if type(zeeman) not in [list, np.ndarray]:
+            raise ValueError('Expecting a 3D list or array')
         if np.shape(zeeman) != (3,):
-            raise ValueError('Expecting a list of for [Hx, Hy, Hz]\
-                              List supplied is not of this\
-                              form.')
-        self._zeeman = zeeman
+            raise ValueError('Expecting a zeeman in the form [Hx, Hy, Hz]\
+                              Supplied value is not of this form.')
+        self._zeeman = np.array(zeeman)
 
     def _get_zeeman(self):
         """
@@ -138,10 +137,11 @@ class Macrospin(object):
 
         """
         norm = np.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
-        return [v[0] / norm, v[1] / norm, v[2] / norm]
+        return v / norm
+        # return [v[0] / norm, v[1] / norm, v[2] / norm]
 
     def _set_m(self, m):
-        if type(m) != list:
+        if type(m) not in [list, np.ndarray]:
             raise ValueError('Expecting a 3D list')
         if np.shape(m) != (3,):
             raise ValueError('Expecting a list of for [mx, my, mz]\
