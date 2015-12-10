@@ -32,6 +32,7 @@ t           | The time, t associated with the   | int or float
 import numpy as np
 import scipy
 from scipy import integrate
+from mpi4py import MPI
 
 def llg(m_flat, t, heff_flat, alpha, gamma):
     """
@@ -57,13 +58,21 @@ class Macrospin(object):
     Single Macrospin setup class
     """
     def __init__(self, mesh):
+
+        # Setting up of process ranks
+        self._comm = MPI.COMM_WORLD#comm
+        self._size = self._comm.size
+        self._rank = self._comm.rank
+
         self._Ms = None
         self._alpha = None
         self._gamma = None
         self._zeeman = None
-        self._m = None
+        self._m_local = None
         self._t = 0.0
         self.mesh = mesh
+
+        self._ncells, self._ncells_local, self._ncells_local_full, self._ncells_local_partial = self.mesh.ncells
 
     # -------------------------------------------------------------------
     # Ms property
@@ -139,7 +148,7 @@ class Macrospin(object):
     zeeman = property(_get_zeeman, _set_zeeman)
 
     # -------------------------------------------------------------------
-    # m property
+    # m local property
     # -------------------------------------------------------------------
     def _v_normalise(self, v):
         """
@@ -153,7 +162,7 @@ class Macrospin(object):
         return v / norm
         # return [v[0] / norm, v[1] / norm, v[2] / norm]
 
-    def _set_m(self, m):
+    def _set_m_local(self, m):
         if type(m) not in [list, np.ndarray]:
             raise ValueError('Expecting a 3D list')
         if np.shape(m) != (3,):
@@ -162,21 +171,68 @@ class Macrospin(object):
 
         m = np.array(m)
         if self.mesh.dims == 0:
-            self._m = self._v_normalise(m)
+            self._m_local = self._v_normalise(m)
         if self.mesh.dims == 1:
             m_normalised = self._v_normalise(m)
-            self._m = np.ones((len(self.mesh.cells), 3)) * m_normalised
+            self._m_local = np.ones((self._ncells_local, 3)) * m_normalised
 
-    def _get_m(self):
+    def _get_m_local(self):
         """
         Set the magnetisation, m, of the single Macrospin. Expects
         a 3D list in the form [mx, my, mz].
         """
-        if self._m is None:
+        if self._m_local is None:
             raise AttributeError('magnetisation, m, not yet set')
-        return self._m
+        return self._m_local
 
-    m = property(_get_m, _set_m)
+    m_local = property(_get_m_local)#, _set_m_local)
+
+
+    # -------------------------------------------------------------------
+    # m global property
+    # -------------------------------------------------------------------
+
+    def _get_m_global(self):
+        """
+        Gathers m_local arrays on process 0
+        """
+        # Create array in which global m data is gathered into.
+        # It is gathered onto process rank 0, thus this the array
+        # on this process is initialised as the same length as the
+        # global number of cells
+        # note only 1d array can be gathered, so data needs to be
+        # flattened before sending
+
+        if self._rank == 0:
+            mGathered = np.empty(self._ncells * 3)
+        else:
+            mGathered = None
+        self._comm.Barrier()
+        # set up sendcounts tuple for comm.Gather. This is a tuple containing
+        # the length of the array which each process send. Thus it is in the format
+        # (ncells_process0, ncells_process1, ..., ncell_processn-1)
+        sendcounts = tuple([self._ncells_local_full * 3] * (self._size - 1) + [self._ncells_local_partial * 3])
+        # Set up the displacements tuple for comm.Gather. This is a tuple containing
+        # the indicies where each set of local data should be placed from in the global
+        # array (cellsGathered).
+        displacements = tuple([rank * self._ncells_local_full * 3 for rank in range(self._size)])
+        self._comm.Barrier()
+        # Gatherv is used instead of comm.gather as the length of _cells_local
+        # is not neccessarily the same on each process. comm.gather only works if
+        # the local data arrays being gathered is all the same legnth.
+        self._comm.Gatherv(self._m_local.flatten(), [mGathered, sendcounts, displacements, MPI.DOUBLE])#self._comm.gather(self._cells_local.tolist(), cells, root=0)
+        self._comm.Barrier()
+        # return self._cellsGathered
+        if self._rank != 0:
+            # TODO: would be good to raise an attribute error here when trying to access
+            # global cell data from process other than 0th.
+            mGathered = "Global cell data only available from process 0."
+        else:
+            # reshape m array
+            mGathered.shape = (-1,3)
+        return mGathered
+
+    m = property(fget=_get_m_global, fset=_set_m_local)
 
     # -------------------------------------------------------------------
     # t property
@@ -208,7 +264,7 @@ class Macrospin(object):
         if self.mesh.dims == 0:
             self._heff = self._zeeman
         if self.mesh.dims == 1:
-            self._heff = self._zeeman * np.ones((len(self.mesh.cells), 3))
+            self._heff = self._zeeman * np.ones((self._ncells_local, 3))
         
 
     # -------------------------------------------------------------------
@@ -222,7 +278,7 @@ class Macrospin(object):
         # Compute the effective field
         self._compute_heff()
         # compute m
-        m_flat = integrate.odeint(llg, self._m.flatten(), [self._t, t],
+        m_flat = integrate.odeint(llg, self._m_local.flatten(), [self._t, t],
                                 args=(self._heff.flatten(), self._alpha, self._gamma))
         if self.mesh.dims == 0:
             m = m_flat[1]
@@ -240,5 +296,5 @@ class Macrospin(object):
         Update the value of m accordingly.
         """
         m  = self._compute_llg(t)
-        self._m = m
+        self._m_local = m
         self._t = t

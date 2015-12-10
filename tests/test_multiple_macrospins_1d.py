@@ -41,8 +41,11 @@ The effective field, H, is only dependent on the Zeeman field, thus:
     Heff = Hzeeman
 """
 import numpy as np
+from mpi4py import MPI
 import pytest
 from mpimag import Macrospin
+
+from .skips import xfail_in_parallel
 
 
 def setup_macrospin():
@@ -80,7 +83,6 @@ def setup_macrospin():
 
     return sim
 
-# @pytest.mark.xfail
 def test_compare_with_analytical_sol(do_plot=False):
     import micromagnetictestcases
 
@@ -95,30 +97,34 @@ def test_compare_with_analytical_sol(do_plot=False):
     t_array = np.arange(0.0, t_total, t_step)
 
     # run simulation for specified time
-    mx_computed = np.ndarray((len(t_array), len(sim.mesh.cells))) # sim.cells is number of cells
+    mx_computed = np.ndarray((len(t_array), sim.mesh.ncells[0])) # sim.cells is number of cells
     for ti, t in enumerate(t_array):
         # run simulation until specified time
         sim.run_until(t)
-        mx_computed[ti, :] = sim.m[:, 0] # [mx(x0), mx(x1), mx(x2),...]
+        m = sim.m
+        if MPI.COMM_WORLD.rank == 0:
+            mx_computed[ti, :] = m[:, 0] # [mx(x0), mx(x1), mx(x2),...]
 
     mx_analytic = micromagnetictestcases.macrospin.solution(sim.alpha, sim.gamma, sim.zeeman[2], t_array)
 
     if do_plot:
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(8, 5))
-        plt.plot(t_array / 1e-9, mx_analytic, 'o', label='analytic')
-        plt.plot(t_array / 1e-9, mx_computed[:, 0], linewidth=2, label='simulation')
-        plt.xlabel('t (ns)')
-        plt.ylabel('mx')
-        plt.grid()
-        plt.legend()
-        plt.savefig('macrospin.pdf', format='pdf', bbox_inches='tight')
+        if MPI.COMM_WORLD.rank == 0:
+            import matplotlib.pyplot as plt
+            plt.figure(figsize=(8, 5))
+            plt.plot(t_array / 1e-9, mx_analytic, 'o', label='analytic')
+            plt.plot(t_array / 1e-9, mx_computed[:, 0], linewidth=2, label='simulation')
+            plt.xlabel('t (ns)')
+            plt.ylabel('mx')
+            plt.grid()
+            plt.legend()
+            plt.savefig('macrospin.pdf', format='pdf', bbox_inches='tight')
 
     # For each time step compare mx value from each cell with the analytical value.
     # Return true or false for each time step.
-    compare_cells = [np.allclose(mx_computed[ti, :], mx, rtol=1e-05, atol=1e-05) for ti, mx in enumerate(mx_analytic)]
-    # Assert all values are equal at each time step are equal to the analytical value.
-    assert np.all(compare_cells)
+    if MPI.COMM_WORLD.rank == 0:
+        compare_cells = [np.allclose(mx_computed[ti, :], mx, rtol=1e-05, atol=1e-05) for ti, mx in enumerate(mx_analytic)]
+        # Assert all values are equal at each time step are equal to the analytical value.
+        assert np.all(compare_cells)
 
 if __name__ == '__main__':
     test_compare_with_analytical_sol(do_plot=True)
