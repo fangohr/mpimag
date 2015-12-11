@@ -118,7 +118,6 @@ def test_mesh1d_cells():
 	# Check correct cells are computed on zeroth process
 	if comm.rank == 0:
 		assert len(cells) == 5
-		print cells
 		assert (cells == [1, 3, 5, 7, 9]).all()
 	else:
 		cells = type(str)
