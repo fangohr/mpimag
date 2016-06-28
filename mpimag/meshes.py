@@ -74,7 +74,7 @@ class FDmesh1D(object):
     def __init__(self, x0, x1, nx):
 
         # Setting up of process ranks
-        self._comm = MPI.COMM_WORLD#comm
+        self._comm = MPI.COMM_WORLD
         self._size = self._comm.size
         self._rank = self._comm.rank
 
@@ -84,34 +84,32 @@ class FDmesh1D(object):
         self._x0 = x0
         self._x1 = x1
         self._nx = nx
-        self._ncells = nx - 1 # number of cells
+        self._ncells = nx - 1 # total number of cells
         self._dims = 1 # mesh dimension
 
+        # array, _ncells_locals detailing how many cells each process owns, where the index
+        # of the array corresponds to the process number. Each proccess takes and equal
+        # number of cells. If the total number of cells, _ncells cannot be split equally
+        # over all the processes, the first (_ncells % _size) take (_ncells // _size + 1)
+        # cells  and the remaining processes take (_ncells // _size) cells
+        # e.g. if _ncells = 10 and _size = 3, the distribution of cells would be [4,3,3]
+        self._ncells_locals = np.ones(self._size, dtype='i') * (self._ncells // self._size)
+        # distribute the remaining cells across the remaining processes
+        remaining_rows = self._ncells % self._size
+        self._ncells_locals[0:remaining_rows] +=1
 
+        # calculate the number of node held by each process. This is just the number of
+        # cells + 1
+        self._nx_locals = self._ncells_locals + 1
+
+        # define the node spacing
         self._node_spacing = (self._x1 - self._x0) / self._ncells
-        # the number of cells on a 'full' process
-        # self._ncells_local_full = np.ceil(self._ncells / self._size)
-        self._ncells_local_full = self._ncells // self._size
-        # the number of cells on a 'partially full' process.
-        # This happens when (ncells % size != 0).
-        self._ncells_local_partial = self._ncells - ((self._size - 1) * self._ncells_local_full)
-
-        # coordinate of the local x0 node
-        self._x0_local = self._x0 + (self._rank * self._node_spacing * self._ncells_local_full)
-
-        # calculated the local values, x0_local, x1_local and x_local
-        # The final process takes the remaining mesh, not taken up by the other prcoesses
-        if self._rank == (self._size - 1):
-            # coordinate of the local x1 node
-            self._x1_local = self._x1
-            # number of local nodes
-            self._nx_local = self._ncells_local_partial + 1#self._nx - ((self._size - 1) * self._ncells_local_full)
-        else:
-            self._x1_local = self._x0 + (self._rank + 1) * self._node_spacing * (self._ncells_local_full)
-            self._nx_local = self._ncells_local_full + 1
+        # define the local x0 and x1 values
+        self._x0_local = self._x0 + np.sum(self._ncells_locals[0:self._rank]) * self._node_spacing
+        self._x1_local = self._x0 + np.sum(self._ncells_locals[0:self._rank+1]) * self._node_spacing
 
         # calculate the local node coords held on each process
-        self._nodes_local = np.linspace(self._x0_local, self._x1_local, self._nx_local)
+        self._nodes_local = np.linspace(self._x0_local, self._x1_local, self._nx_locals[self._rank])
         # calculate the coords of the cell centres on each process.
         self._cells_local = self._calculate_cells_local()
 
@@ -142,16 +140,17 @@ class FDmesh1D(object):
         else:
             self._cellsGathered = None
         self._comm.Barrier()
+
         # set up sendcounts tuple for comm.Gather. This is a tuple containing
         # the length of the array which each process send. Thus it is in the format
         # (ncells_process0, ncells_process1, ..., ncell_processn-1)
-        # sendcounts = tuple([int(self._ncells_local_full)] * (self._size - 1) + [int(self._ncells_local_partial)])
-        sendcounts = tuple([self._ncells_local_full] * (self._size - 1) + [int(self._ncells_local_partial)])
+        sendcounts = self._ncells_locals
+
         # Set up the displacements tuple for comm.Gather. This is a tuple containing
         # the indicies where each set of local data should be placed from in the global
         # array (cellsGathered).
-        # displacements = tuple([rank * int(self._ncells_local_full) for rank in range(self._size)])
-        displacements = tuple([rank * self._ncells_local_full for rank in range(self._size)])
+        displacements = np.concatenate(([0], self._ncells_locals[0:-1].cumsum()))
+
         self._comm.Barrier()
         # Gatherv is used instead of comm.gather as the length of _cells_local
         # is not neccessarily the same on each process. comm.gather only works if
@@ -177,9 +176,9 @@ class FDmesh1D(object):
         Returns a tuple, (a,b,c,d) where a,b,c is:
             a) the total number of cells
             b) the number of local cells on the process
-            c) the number of local cells on a 'full' process
-            d) the number of local cells on the final process
+            c) an array of the number of cells on all the processes, where the index 
+               of the number where it occurs in the array corresponds to the process number
         """
-        return (self._ncells, len(self._cells_local), self._ncells_local_full, self._ncells_local_partial)
+        return (self._ncells, len(self._cells_local), self._ncells_locals)
     
     ncells = property(fget=_get_ncells)
