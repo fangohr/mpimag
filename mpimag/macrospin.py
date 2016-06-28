@@ -72,7 +72,7 @@ class Macrospin(object):
         self._t = 0.0
         self.mesh = mesh
 
-        self._ncells, self._ncells_local, self._ncells_local_full, self._ncells_local_partial = self.mesh.ncells
+        self._ncells, self._ncells_local, self._ncells_locals = self.mesh.ncells
 
     # -------------------------------------------------------------------
     # Ms property
@@ -174,7 +174,7 @@ class Macrospin(object):
             self._m_local = self._v_normalise(m)
         if self.mesh.dims == 1:
             m_normalised = self._v_normalise(m)
-            self._m_local = np.ones((self._ncells_local, 3)) * m_normalised
+            self._m_local = np.ones((self._ncells_locals[self._rank], 3)) * m_normalised
 
     def _get_m_local(self):
         """
@@ -185,7 +185,7 @@ class Macrospin(object):
             raise AttributeError('magnetisation, m, not yet set')
         return self._m_local
 
-    m_local = property(_get_m_local)#, _set_m_local)
+    m_local = property(_get_m_local)
 
 
     # -------------------------------------------------------------------
@@ -202,6 +202,7 @@ class Macrospin(object):
         # global number of cells
         # note only 1d array can be gathered, so data needs to be
         # flattened before sending
+        # TODO: can actually gather in mutli dim arrays.
 
         if self._rank == 0:
             mGathered = np.empty(self._ncells * 3)
@@ -210,12 +211,15 @@ class Macrospin(object):
         self._comm.Barrier()
         # set up sendcounts tuple for comm.Gather. This is a tuple containing
         # the length of the array which each process send. Thus it is in the format
-        # (ncells_process0, ncells_process1, ..., ncell_processn-1)
-        sendcounts = tuple([self._ncells_local_full * 3] * (self._size - 1) + [self._ncells_local_partial * 3])
+        # (ncells_process0 * 3, ncells_process1  * 3, ..., ncell_processn-1 * 3)
+        # * 3 due to there being 3 magnetisation components per cell, mx, my, mz
+        sendcounts = self._ncells_locals * 3
+
         # Set up the displacements tuple for comm.Gather. This is a tuple containing
         # the indicies where each set of local data should be placed from in the global
         # array (cellsGathered).
-        displacements = tuple([rank * self._ncells_local_full * 3 for rank in range(self._size)])
+        displacements = np.concatenate(([0], self._ncells_locals[0:-1].cumsum())) * 3
+
         self._comm.Barrier()
         # Gatherv is used instead of comm.gather as the length of _cells_local
         # is not neccessarily the same on each process. comm.gather only works if
