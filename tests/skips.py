@@ -2,6 +2,7 @@ import pytest
 from mpi4py import MPI
 
 # Skips with respect to parallel or serial
+xfail_not_implemented = pytest.mark.xfail(reason="This test does not work as simulation code not yet implemented")
 xfail_in_parallel = pytest.mark.xfail(MPI.COMM_WORLD.size > 1,
                                       reason="This test does not yet work in parallel.")
 skip_in_parallel = pytest.mark.skipif(MPI.COMM_WORLD.size > 1,
