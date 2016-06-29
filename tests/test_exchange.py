@@ -72,10 +72,10 @@ def setup_simulation():
     """
     from mpimag import FDmesh1D
     from mpimag import Sim
-    
+
     # mesh parameters
-    x0 = -100
-    x1 = 100 # nm
+    x0 = -50
+    x1 = 50 # nm
     nx = 101 # number of nodes in x-dir
     mesh = FDmesh1D(x0, x1, nx)
 
@@ -98,7 +98,7 @@ def test_no_exchange_from_uniform_m():
     # compute the exchange field
     h_ex_computed = sim.exchange_field
     # define the analytical solution
-    h_ex_analytical = np.zeros(100)
+    h_ex_analytical = np.zeros((100,3))
 
     # compare the computed solution with the analytical solution
     if MPI.COMM_WORLD.rank == 0:
@@ -106,6 +106,7 @@ def test_no_exchange_from_uniform_m():
 
 @xfail_not_implemented
 def test_compare_with_analytical_solution():
+    k = 0.1
     # mesh parameters
     sim = setup_simulation()
     #initialise the magnetisation
@@ -114,10 +115,13 @@ def test_compare_with_analytical_solution():
     # compute the exchange field
     h_ex_computed = sim.exchange_field
     # define the analytical solution
-    #TODO: define the the analytical solution
-    x_coords = np.linspace(-100, 100, 101)
+    x_coords = sim.mesh.cells
+    h_ex_analytical_x = 0 * x_coords
+    h_ex_analytical_y = np.sin(k * (x_coords - 0.5))
+    h_ex_analytical_z = np.cos(k * (x_coords - 0.5))
+    h_ex_analytical = -2 * (k ** 2) * np.array([h_ex_analytical_x, h_ex_analytical_y, h_ex_analytical_z])
 
     # compare the computed solution with the analytical solution
     if MPI.COMM_WORLD.rank == 0:
         assert len(cells) == 5
-        assert (h_ex_computed == h_ex_analytical).all()
+        assert (h_ex_computed == h_ex_analytical.T).all()
