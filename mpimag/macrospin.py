@@ -35,21 +35,62 @@ from scipy import integrate
 from mpi4py import MPI
 
 def llg(m_flat, t, heff_flat, alpha, gamma):
+    """Calculates right hand side of the Landau-Lifshitz-Gilbert equation.
+
+    The Landau-Lifshitz-Gilbert (LLG) equation is:
+
+        dm/dt = -gamma * (m x Heff) - gamma * alpha * (m x m x Heff)
+
+    The equation calculates the right hand side of this equation for a 0D or
+    1D system.
+
+    This function is used with in scipy.integrate.odeint and therefore
+    flattened versions of the magnetisation and effective field vectors are
+    required. Due to the use with odeint, the time, t is required as the
+    second parameter. It is not actually used in the function though.
+
+    In a 1D system, the total number of cells is ncells. As there are three
+    magnetisation components, (mx, my, mz), the flattened arrays should be of
+    length ncells * 3 e.g.
+        [mx(x0), my(x0), mz(x0), ..., mx(x1), my(x1), mz(x1)]
+
+    The function reshapes m_flat and heff_flat into the shape (ncells, 3) e.g.
+        [[mx(x0), my(x0), mz(x0)], [...], [mx(x1), my(x1), mz(x1)]
+    in order to calculate the cross products.
+
+    Parameters
+    ----------
+
+    ==========================================================================
+    Parameter   | Description                            | Usage
+    ==========================================================================
+    m_flat      | The flattened magnetisation vector e.g.| numpy array
+                | in the form:                           | 
+                | [mx(x0), my(x0), mz(x0), mx(x1), ...]  | 
+    --------------------------------------------------------------------------
+    t           | The time                               | int
+    --------------------------------------------------------------------------
+    heff_flat   | The flattened effective field vector   | numpy array
+    --------------------------------------------------------------------------
+    alpha       | Alpha parameter from LLG equation      | float
+    --------------------------------------------------------------------------
+    gamma       | Gamma parameter from the LLG equation  | float
+    --------------------------------------------------------------------------
+
+    Returns
+    -------
+
+    Returns a flattened version of the vector calculated from the right hand
+    side.
+
     """
-    Computing the LLG equation.
-
-    Expects flattened arrays for m and heff. E.g. an array in the form:
-        [m(x0), m(y0), m(z0), m(x1), m(y1), m(z1), ...]
-
-    returns a flattened array
-
-    """
-    # Computing dmdt
-    # First compute the cross products
+    # Reshape the magnetisation and effective field arrays
     m = m_flat.reshape(-1, 3)
     heff = heff_flat.reshape(-1, 3)
+    # calculate the cross products
     mCrossH = np.cross(m, heff)
     mCrossmCrossH = np.cross(m, mCrossH)
+    # calculate the rhs of the equation
     result = (-1 * gamma * mCrossH) - (gamma * alpha * mCrossmCrossH)
     return result.flatten()
 
@@ -60,7 +101,7 @@ class Macrospin(object):
     def __init__(self, mesh):
 
         # Setting up of process ranks
-        self._comm = MPI.COMM_WORLD#comm
+        self._comm = MPI.COMM_WORLD
         self._size = self._comm.size
         self._rank = self._comm.rank
 
@@ -72,18 +113,27 @@ class Macrospin(object):
         self._t = 0.0
         self.mesh = mesh
 
-        self._ncells, self._ncells_local, self._ncells_locals = self.mesh.ncells
+        (self._ncells,
+            self._ncells_local,
+            self._ncells_locals) = self.mesh.ncells
 
     # -------------------------------------------------------------------
     # Ms property
     # -------------------------------------------------------------------
     def _set_Ms(self, Ms):
+        """Set the Saturation magnetisation, Ms.
+
+        Expects an int or float
+
+        """
         self._Ms = Ms
 
     def _get_Ms(self):
-        """
-        Set the value of Ms of the single Macrospin. Expects an int
-        or float
+        """Get or Set value of the Saturation magnetisation, Ms.
+
+        Set: Expects an int or float
+        Get: Returns an int or float
+
         """
         if self._Ms is None:
             raise AttributeError('Ms not yet set')
@@ -95,12 +145,19 @@ class Macrospin(object):
     # alpha property
     # -------------------------------------------------------------------
     def _set_alpha(self, alpha):
+        """Set the alpha value in the LLG equation.
+
+        Expects an int or float
+
+        """
         self._alpha = alpha
 
     def _get_alpha(self):
-        """
-        Set the value of alpha of the single Macrospin. Expects an int
-        or float
+        """Get or Set value of the alpha value used in the LLG equation.
+
+        Set: Expects an int or float
+        Get: Returns an int or float
+
         """
         if self._alpha is None:
             raise AttributeError('Alpha not yet set')
@@ -112,12 +169,19 @@ class Macrospin(object):
     # gamma property
     # -------------------------------------------------------------------
     def _set_gamma(self, gamma):
+        """Set the gamma value in the LLG equation.
+
+        Expects an int or float
+
+        """
         self._gamma = gamma
 
     def _get_gamma(self):
-        """
-        Set the value of gamma of the single Macrospin. Expects an int
-        or float
+        """Get or Set value of the gamma value used in the LLG equation.
+
+        Set: Expects an int or float
+        Get: Returns an int or float
+
         """
         if self._gamma is None:
             raise AttributeError('Gamma not yet set')
@@ -129,6 +193,15 @@ class Macrospin(object):
     # zeeman property
     # -------------------------------------------------------------------
     def _set_zeeman(self, zeeman):
+        """Sets the Zeeman field applied the simulation object
+
+        Zeeman field is assumed to be uniform across the sample, applied in
+        the (Hx, Hy, Hz).
+
+        Function expects the values for (Hx, Hy, Hz) in a 1D list or array
+        form of length 3.
+
+        """
         if type(zeeman) not in [list, np.ndarray]:
             raise ValueError('Expecting a 3D list or array')
         if np.shape(zeeman) != (3,):
@@ -137,9 +210,15 @@ class Macrospin(object):
         self._zeeman = np.array(zeeman)
 
     def _get_zeeman(self):
-        """
-        Set the Zeeman field interaction on the single Macrospin. Expects
-        a 3D list in the form [Hx, Hy, Hz].
+        """Set or return current Zeeman field.
+
+        Zeeman field is assumed to be uniform across the sample, applied in
+        the (Hx, Hy, Hz).
+
+        Set: function expects the values for (Hx, Hy, Hz) in a 1D list or array
+             form of length 3.
+        Get: returns a numpy array of the uniform Zeeman field, [Hx, Hy, Hz]
+
         """
         if self._zeeman is None:
             raise AttributeError('Zeeman field not yet set')
@@ -151,18 +230,29 @@ class Macrospin(object):
     # m local property
     # -------------------------------------------------------------------
     def _v_normalise(self, v):
-        """
-        Takes a list v, of the form [vx, vy, vz] and returns a normalised
-        list of v:
+        """Normalise a vector, v, [vx, vy, vz]
+
+        Takes a list or numpy array, v, of the form [vx, vy, vz] and returns a
+        normalised v as an numpy array:
 
             [vx, vy, vz] / (vx**2 + vy**2 + vz**2)**0.5
 
         """
         norm = np.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
         return v / norm
-        # return [v[0] / norm, v[1] / norm, v[2] / norm]
 
     def _set_m_local(self, m):
+        """Set the magnetisation of the part of the simulation object held on
+        the particular process which calls the function
+
+        Function to set the magnetisation of a simulation object with a
+        uniform magnetisation [mx, my, mz], everywhere over the sample.
+
+        Accepts a 1D list or numpy array of the form [mx, my, mz]
+
+        The function will automatically normalise the supplied magnetisation.
+
+        """
         if type(m) not in [list, np.ndarray]:
             raise ValueError('Expecting a 3D list')
         if np.shape(m) != (3,):
@@ -174,13 +264,25 @@ class Macrospin(object):
             self._m_local = self._v_normalise(m)
         if self.mesh.dims == 1:
             m_normalised = self._v_normalise(m)
-            self._m_local = np.ones((self._ncells_locals[self._rank], 3)) * m_normalised
+            self._m_local = np.ones((self._ncells_locals[self._rank], 3)) * \
+                                m_normalised
 
     def _get_m_local(self):
+        """Get or Set local magnetisation.
+
+        Get or Set the magnetisation of the part of the simulation object
+        held on the particular process which calls the function
+
+        The magnetisation of a simulation object is set with a normalised
+        uniform magnetisation, [mx, my, mz], everywhere over the sample.
+
+        Set: Accepts a 1D list or numpy array of the form [mx, my, mz]
+             The function will automatically normalise the supplied
+             magnetisation.
+        Get: Returns the magnetisation, [mx, my, mz] of the simuation object.
+        
         """
-        Set the magnetisation, m, of the single Macrospin. Expects
-        a 3D list in the form [mx, my, mz].
-        """
+
         if self._m_local is None:
             raise AttributeError('magnetisation, m, not yet set')
         return self._m_local
@@ -193,13 +295,16 @@ class Macrospin(object):
     # -------------------------------------------------------------------
 
     def _get_m_global(self):
-        """
-        Gathers m_local arrays on process 0
+        """Gets the entire magnetisation array on process 0.
+
+        Gathers the m_local arrays on process 0.
+
+        Return the magnetisation array of the entire simulation object.
         """
         # Create array in which global m data is gathered into.
-        # It is gathered onto process rank 0, thus this the array
-        # on this process is initialised as the same length as the
-        # global number of cells
+        # It is gathered onto process rank 0, thus this the array on this
+        # process is initialised as the same length as the global number of
+        # cells.
         # note only 1d array can be gathered, so data needs to be
         # flattened before sending
         # TODO: can actually gather in mutli dim arrays.
@@ -210,26 +315,32 @@ class Macrospin(object):
             mGathered = None
         self._comm.Barrier()
         # set up sendcounts tuple for comm.Gather. This is a tuple containing
-        # the length of the array which each process send. Thus it is in the format
-        # (ncells_process0 * 3, ncells_process1  * 3, ..., ncell_processn-1 * 3)
-        # * 3 due to there being 3 magnetisation components per cell, mx, my, mz
+        # the length of the array which each process send. Thus it is in the
+        # format:
+        # (ncells_process0 * 3, 
+        #       ncells_process1  * 3, ..., ncell_processn-1 * 3)
+        # * 3 due to there being 3 magnetisation components per
+        # cell, mx, my, mz
         sendcounts = self._ncells_locals * 3
 
-        # Set up the displacements tuple for comm.Gather. This is a tuple containing
-        # the indicies where each set of local data should be placed from in the global
-        # array (cellsGathered).
-        displacements = np.concatenate(([0], self._ncells_locals[0:-1].cumsum())) * 3
+        # Set up the displacements tuple for comm.Gather. This is a tuple
+        # containing the indicies where each set of local data should be
+        # placed from in the global array (mGathered).
+        displacements = np.concatenate(([0],
+                            self._ncells_locals[0:-1].cumsum())) * 3
 
         self._comm.Barrier()
         # Gatherv is used instead of comm.gather as the length of _cells_local
-        # is not neccessarily the same on each process. comm.gather only works if
-        # the local data arrays being gathered is all the same legnth.
-        self._comm.Gatherv(self._m_local.flatten(), [mGathered, sendcounts, displacements, MPI.DOUBLE])#self._comm.gather(self._cells_local.tolist(), cells, root=0)
+        # is not neccessarily the same on each process. comm.gather only works
+        # if the local data arrays being gathered is all the same length.
+        self._comm.Gatherv(self._m_local.flatten(), [mGathered,
+                                                     sendcounts,
+                                                     displacements,
+                                                     MPI.DOUBLE])
         self._comm.Barrier()
-        # return self._cellsGathered
         if self._rank != 0:
-            # TODO: would be good to raise an attribute error here when trying to access
-            # global cell data from process other than 0th.
+            # TODO: would be good to raise an attribute error here when trying
+            # to access global cell data from process other than 0th.
             mGathered = "Global cell data only available from process 0."
         else:
             # reshape m array
@@ -242,6 +353,7 @@ class Macrospin(object):
     # t property
     # -------------------------------------------------------------------
     def _set_t(self, t):
+        # FINDME!
         # check if t is greater than or equal to zero. If not, raise value
         # error
         if t < 0.0:
