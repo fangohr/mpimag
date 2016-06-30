@@ -92,41 +92,65 @@ if rank < (size - 1):
 if rank == size - 1:
     ghost_below = np.empty((0, y, 3))
 
-# Send and recv data swaps
-# TODO: explain how this works!
-if rank % 2 == 0 and rank != (size-1):
-    comm.Sendrecv(sendbuf=image_local[-blur_factor:],
-                    dest=rank+1,
-                    sendtag=rank,
-                    recvbuf=ghost_below,
-                    source=rank+1,
-                    recvtag=rank+1)
 
-if rank % 2 == 1 and rank != 0:
-    comm.Sendrecv(sendbuf=image_local[0:blur_factor],
-                    dest=rank-1,
-                    sendtag=rank,
-                    recvbuf=ghost_above,
-                    source=rank-1,
-                    recvtag=rank-1)
+# # 'Rebecca' method for data swapping
+# #-----------------------------------
+# # Send and recv data swaps
+# # TODO: explain how this works!
+# if rank % 2 == 0 and rank != (size-1):
+#     comm.Sendrecv(sendbuf=image_local[-blur_factor:],
+#                     dest=rank+1,
+#                     sendtag=rank,
+#                     recvbuf=ghost_below,
+#                     source=rank+1,
+#                     recvtag=rank+1)
 
-comm.Barrier()
+# if rank % 2 == 1 and rank != 0:
+#     comm.Sendrecv(sendbuf=image_local[0:blur_factor],
+#                     dest=rank-1,
+#                     sendtag=rank,
+#                     recvbuf=ghost_above,
+#                     source=rank-1,
+#                     recvtag=rank-1)
 
-if rank % 2 == 1 and rank != (size-1):
-    comm.Sendrecv(sendbuf=image_local[-blur_factor:],
-                    dest=rank+1,
-                    sendtag=rank,
-                    recvbuf=ghost_below,
-                    source=rank+1,
-                    recvtag=rank+1)
+# comm.Barrier()
 
-if rank % 2 == 0 and rank != 0:
-    comm.Sendrecv(sendbuf=image_local[0:blur_factor],
-                    dest=rank-1,
-                    sendtag=rank,
-                    recvbuf=ghost_above,
-                    source=rank-1,
-                    recvtag=rank-1)
+# if rank % 2 == 1 and rank != (size-1):
+#     comm.Sendrecv(sendbuf=image_local[-blur_factor:],
+#                     dest=rank+1,
+#                     sendtag=rank,
+#                     recvbuf=ghost_below,
+#                     source=rank+1,
+#                     recvtag=rank+1)
+
+# if rank % 2 == 0 and rank != 0:
+#     comm.Sendrecv(sendbuf=image_local[0:blur_factor],
+#                     dest=rank-1,
+#                     sendtag=rank,
+#                     recvbuf=ghost_above,
+#                     source=rank-1,
+#                     recvtag=rank-1)
+
+# Halo method for data swapping
+#------------------------------
+
+# define the ranks which lie 'above' and 'below'. Assume there is no
+# periodicity
+cart_comm = comm.Create_cart([size], periods=[0])
+above_rank, below_rank = cart_comm.Shift(0, 1)
+
+# Halo part one. Send the bottom part of image to rank 'below'. The rank below
+# will use this data a ghost pixels for the top of it's image.
+cart_comm.Sendrecv(sendbuf=image_local[-blur_factor:],
+                   dest=below_rank,
+                   recvbuf=ghost_above,
+                   source=above_rank)
+
+# Halo part two: and repeat in opposite direction
+cart_comm.Sendrecv(sendbuf=image_local[0:blur_factor],
+                   dest=above_rank,
+                   recvbuf=ghost_below,
+                   source=below_rank)
 
 
 # create array containing local image plus the surrounding ghost pixels
