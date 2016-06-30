@@ -174,4 +174,40 @@ f.savefig("image_blur_parallel_{}".format(rank))
 #-----------------------------------------------------
 # Test
 #----------------------------------------------------
-# TODO
+# first gather data
+
+# define array to gather data into
+
+if rank == 0:
+	image_blurred_gathered = np.empty((x, y, 3))
+else:
+	image_blurred_gathered = None
+
+# sendcounts and displacements already defined from before
+
+comm.Gatherv(image_local_blurred, [image_blurred_gathered,
+								   sendcounts,
+								   displacements,
+								   MPI.DOUBLE], root=0)
+# compare the two arrays
+if rank == 0:
+	image_blurred_serial = blur(image_full, blur_factor=blur_factor)
+	assert((image_blurred_serial == image_blurred_gathered).all())
+
+# plot complete images (original and blurred)
+if rank == 0:
+	f, axarr = plt.subplots(2)
+
+	axarr[0].imshow(image_full.astype('uint8'))
+	axarr[0].set_title('Original Image, rank {}'.format(rank))
+
+	axarr[1].imshow(image_blurred_gathered.astype('uint8'))
+	axarr[1].set_title('Blurred Image, rank {}'.format(rank))
+
+	# turn off axis
+	axarr[0].get_xaxis().set_visible(False)
+	axarr[0].get_yaxis().set_visible(False)
+	axarr[1].get_xaxis().set_visible(False)
+	axarr[1].get_yaxis().set_visible(False)
+
+	f.savefig("image_blurred_gathered.png".format(rank))
