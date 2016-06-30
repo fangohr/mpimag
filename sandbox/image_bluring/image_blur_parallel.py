@@ -4,66 +4,13 @@ from skimage import io
 from mpi4py import MPI
 import numpy as np
 
+from blur import blur
+
 # Setting up of process ranks
 comm = MPI.COMM_WORLD
 size = comm.size
 rank = comm.rank
 blur_factor = 4
-
-def blur(image_local_ghosts, ghosts, x_local, y, blur_factor=1):
-    """
-    Image blurring function.
-    
-    Takes an RGB image, with shape (x_local,y,3) and blurs it according to the blur_factor, n.
-    x and y are the dimensions (in pixels of the image). 
-    
-    Blurring is done as follows:
-        The 'blurred' value at (xi_local, yi) is the average of each pixel at (xi_local, yi) and all
-        the pixels surrounding it between xi_local-n, xi_local+n and yi-n,yi+n.
-        
-        Thus for n=1, the average is taken of the pixel and the 8 closest neighbouring pixels.
-
-    ghosts: number of upper ghost rows
-    x_local: number of rows on local image (no ghosts included)
-    """
-    blurred = np.zeros((x_local, y, 3))
-
-    # loop over all pixels
-    for xi in range(ghosts, x_local + ghosts):
-        # calculate the lower and up values of pixel x indices to average
-        xi_lower = xi - blur_factor
-        xi_upper = xi + blur_factor + 1
-
-        #  correct x indices if out of range.
-        if xi_lower < 0:
-            xi_lower = 0
-        # if xi_upper > x_local + ghosts:
-        #     xi_upper = x_local + ghosts
-
-        for yi in range(y):
-            # calculate the lower and up values of pixel y indices to average
-            yi_lower = yi - blur_factor
-            yi_upper = yi + blur_factor + 1
-
-            #  correct y indices if out of range.
-            if yi_lower < 0:
-                yi_lower = 0
-            if yi_upper > y:
-                yi_upper = y
-
-            # calculate the average of the pixel and all surrounding pixels for
-            # each RGB colour
-            # red channel
-            red_channel_pixels = image_local_ghosts[xi_lower:xi_upper, yi_lower:yi_upper, 0]
-            blurred[xi-ghosts, yi, 0] = np.mean(red_channel_pixels.flatten())
-            # green channel
-            green_channel_pixels = image_local_ghosts[xi_lower:xi_upper, yi_lower:yi_upper, 1]
-            blurred[xi-ghosts, yi, 1] = np.mean(green_channel_pixels.flatten())
-            # blue channel
-            blue_channel_pixels = image_local_ghosts[xi_lower:xi_upper, yi_lower:yi_upper, 2]
-            blurred[xi-ghosts, yi, 2] = np.mean(blue_channel_pixels.flatten())
-
-    return blurred
 
 #-----------------------------------------------------
 # read image in on rank 0
