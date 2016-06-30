@@ -91,6 +91,7 @@ comm.Scatterv([image_full, sendcounts, displacements, MPI.DOUBLE], image_local, 
 # as this is the top of the original image.
 if rank > 0:
 	ghost_above = np.empty((blur_factor, y, 3))
+	num_ghosts_above = blur_factor
 # likewise, no ghost points below image stored on highest
 # numbered process
 if rank < (size - 1):
@@ -98,11 +99,10 @@ if rank < (size - 1):
 
 if rank == 0:
 	ghost_above = np.empty((0, y, 3))
+	num_ghosts_above = 0
 
 if rank == size - 1:
 	ghost_below = np.empty((0, y, 3))
-
-ghosts = [ghost_above.shape[0], ghost_below.shape[0]]
 
 # Send and recv data swaps
 # TODO: explain how this works!
@@ -141,18 +141,26 @@ if rank % 2 == 0 and rank != 0:
 					recvtag=rank-1)
 
 
-# create array with ghost pixels
+# create array containing local image plus the surrounding ghost pixels
 image_local_ghosts = np.concatenate((ghost_above, image_local, ghost_below))
 
 # blur, plot and save
-blurred = blur(image_local_ghosts, ghosts[0], x_local, y, blur_factor=blur_factor)
+
+# blurring including blurred ghosts
+image_local_ghosts_blurred = blur(image_local_ghosts, blur_factor=blur_factor)
+
+# blurred image without ghosts
+image_local_blurred = \
+	image_local_ghosts_blurred[num_ghosts_above: x_local + num_ghosts_above
+							   :,
+							   :]
 
 f, axarr = plt.subplots(2)
 
 axarr[0].imshow(image_local.astype('uint8'))
 axarr[0].set_title('Original Image, rank {}'.format(rank))
 
-axarr[1].imshow(blurred.astype('uint8'))
+axarr[1].imshow(image_local_blurred.astype('uint8'))
 axarr[1].set_title('Blurred Image, rank {}'.format(rank))
 
 # turn off axis
