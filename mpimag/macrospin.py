@@ -113,9 +113,10 @@ class Macrospin(object):
         self._t = 0.0
         self.mesh = mesh
 
-        (self._ncells,
-            self._ncells_local,
-            self._ncells_locals) = self.mesh.ncells
+        if self.mesh.dims > 0:
+            (self._ncells,
+                self._ncells_local,
+                self._ncells_locals) = self.mesh.ncells
 
     # -------------------------------------------------------------------
     # Ms property
@@ -347,7 +348,13 @@ class Macrospin(object):
             mGathered.shape = (-1,3)
         return mGathered
 
-    m = property(fget=_get_m_global, fset=_set_m_local)
+    def _get_m(self):
+        if self.mesh.dims == 0:
+            return self._get_m_local()
+        if self.mesh.dims == 1:
+            return self._get_m_global()
+
+    m = property(fget=_get_m, fset=_set_m_local)
 
     # -------------------------------------------------------------------
     # t property
