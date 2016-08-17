@@ -30,7 +30,7 @@ def setup():
     mesh = FDmesh0D()
     return Macrospin(mesh)
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_set_Ms():
     sim = setup()
 
@@ -43,7 +43,7 @@ def test_set_Ms():
     sim.Ms = 8.6e5
     assert (sim.Ms == 8.6e5)
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_set_alpha():
     sim = setup()
 
@@ -56,7 +56,7 @@ def test_set_alpha():
     sim.alpha = 0.1
     assert (sim.alpha == 0.1)
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_set_gamma():
     sim = setup()
 
@@ -69,7 +69,7 @@ def test_set_gamma():
     sim.gamma = 2.211e5
     assert (sim.gamma == 2.211e5)
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_set_zeeman():
     sim = setup()
 
@@ -93,7 +93,7 @@ def test_set_zeeman():
     sim.zeeman = [0, 0, B / mu0]
     assert np.all(sim.zeeman == [0, 0, B / mu0])
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_set_m():
     sim = setup()
 
@@ -122,7 +122,7 @@ def test_set_m():
     expected = np.array([1 / norm, 2 / norm, 3 / norm])
     assert np.all(sim.m == expected)
 
-@pytest.mark.xfail
+# @pytest.mark.xfail
 def test_sim_time():
     sim = setup()
 
