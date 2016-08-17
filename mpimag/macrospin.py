@@ -349,6 +349,13 @@ class Macrospin(object):
         return mGathered
 
     def _get_m(self):
+        """Get the global m array.
+
+        for 0D model, the data for the single spin is contained in m_local.
+
+        for 1D model, the data needs to be gathered onto the zeroth process
+        first before returning the data.
+        """
         if self.mesh.dims == 0:
             return self._get_m_local()
         if self.mesh.dims == 1:
