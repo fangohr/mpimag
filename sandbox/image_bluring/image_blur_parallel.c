@@ -1,8 +1,6 @@
 /* To do
 change z to c
-variable names
-move everything out of main
-get rid of multiple arrays
+comments!
 */
 
 #include <stdio.h>
@@ -203,98 +201,38 @@ void calculate_scatter_variables(int size, int rank, int* xLocals, int x, int y,
     }
 }
 
-int main(int argc, char *argv[])
-{
-    int size, rank;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Status status;
+void define_ghost_variables(int y, int z, int rank, int size, int* ghostsAboveSize, int* ghostsBelowSize, int* xGhostsAbove, int* xGhostsBelow) {
+    if (rank == 0){
+        *xGhostsAbove = 0;
+        *xGhostsBelow = blur_factor;
+    }
+    else if (rank == (size - 1)){
+        *xGhostsAbove = blur_factor;
+        *xGhostsBelow = 0;
+    }
+    else {
+        *xGhostsAbove = blur_factor;
+        *xGhostsBelow = blur_factor;
+    }
 
-	char *filename = malloc(strlen(argv[1]) + 4 + 1);
-	char *filenameWrite = malloc(strlen(argv[1]) + 8 + 1);
+    *ghostsAboveSize = *xGhostsAbove * y * z;
+    *ghostsBelowSize = *xGhostsBelow * y * z;
+}
 
-    int x, y, z, xLocal, xGhostsAbove, xGhostsBelow;
-	
-    long double *img;
-    long double *imgBlurred;
-    long double *imgLocal;
-    long double *imgLocalBlurred;
+void get_ghosts(int size, long double* imgLocal, int imgLocalSize, int ghostsAboveSize, int blurFactorSize) {
 
-    int imgSize, imgLocalSize;
-    int ghostsAboveSize, ghostsBelowSize;
-    int blurFactorSize;
-
-    int *xLocals = (int*) malloc(sizeof(int) * size);
-    int *sendcounts = (int*) malloc(sizeof(int) * size);
-    int *displacements = (int*) malloc(sizeof(int) * size);
-
-    // variables for car
     int ndims = 1;
     int dim[ndims];
     int period[ndims];
     int reorder;
     MPI_Comm cart_comm;
+
     int above_rank, below_rank;
 
-    sprintf(filename, "%s.txt", argv[1]);
-    sprintf(filenameWrite, "%s_out.txt", argv[1]);
-
-	x = strtol(argv[2], NULL, 10);
-	y = strtol(argv[3], NULL, 10);
-	z = strtol(argv[4], NULL, 10);
-
-    sprintf(filename, "%s.txt", argv[1]);
-
-    // read image in on process 0.  
-    imgSize = x * y * z;
-    blurFactorSize = blur_factor * y * z;
-    img = (long double*) malloc(sizeof(long double) * imgSize);
-    imgBlurred = (long double*) malloc(sizeof(long double) * imgSize);
-  
-    if (rank == 0){
-        read_file_to_array(x, y, z, filename, img);
-    }
-
-    calculate_scatter_variables(size, rank, xLocals, x, y, z, sendcounts, displacements);
-
-    xLocal = xLocals[rank];
-    imgLocalSize = sendcounts[rank];
-
-    if (rank == 0){
-        xGhostsAbove = 0;
-        xGhostsBelow = blur_factor;
-    }
-    else if (rank == (size - 1)){
-        xGhostsAbove = blur_factor;
-        xGhostsBelow = 0;
-    }
-    else {
-        xGhostsAbove = blur_factor;
-        xGhostsBelow = blur_factor;
-    }
-
-    ghostsAboveSize = xGhostsAbove * y * z;
-    ghostsBelowSize = xGhostsBelow * y * z;  
-
-    imgLocal = (long double*) malloc(sizeof(long double) * (imgLocalSize + ghostsBelowSize + ghostsAboveSize));
-    imgLocalBlurred = (long double*) malloc(sizeof(long double) * (imgLocalSize + ghostsBelowSize + ghostsAboveSize));
-
-    MPI_Scatterv(img,
-                 sendcounts,
-                 displacements,
-                 MPI_LONG_DOUBLE,
-                 imgLocal + ghostsAboveSize,
-                 imgLocalSize,
-                 MPI_LONG_DOUBLE,
-                 0,
-                 MPI_COMM_WORLD);
-
-    ndims = 1;
     dim[0] = size;
     period[0] = 0; //bool
     reorder = 0; //bool
-    
+
     MPI_Cart_create(MPI_COMM_WORLD,
                     ndims,
                     dim,
@@ -329,6 +267,74 @@ int main(int argc, char *argv[])
                  1,
                  cart_comm,
                  &status);
+
+}
+
+// void halo(){}
+
+int main(int argc, char *argv[])
+{
+    int size, rank;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+	char *filename = malloc(strlen(argv[1]) + 4 + 1);
+	char *filenameWrite = malloc(strlen(argv[1]) + 8 + 1);
+
+    int x, y, z, xLocal, xGhostsAbove, xGhostsBelow;
+	
+    long double *img;
+    long double *imgBlurred;
+    long double *imgLocal;
+    long double *imgLocalBlurred;
+
+    int imgSize, imgLocalSize;
+    int ghostsAboveSize, ghostsBelowSize;
+    int blurFactorSize;
+
+    int *xLocals = (int*) malloc(sizeof(int) * size);
+    int *sendcounts = (int*) malloc(sizeof(int) * size);
+    int *displacements = (int*) malloc(sizeof(int) * size);
+
+    sprintf(filename, "%s.txt", argv[1]);
+    sprintf(filenameWrite, "%s_out.txt", argv[1]);
+
+	x = strtol(argv[2], NULL, 10);
+	y = strtol(argv[3], NULL, 10);
+	z = strtol(argv[4], NULL, 10);
+
+    // read image in on process 0.  
+    imgSize = x * y * z;
+    blurFactorSize = blur_factor * y * z;
+    img = (long double*) malloc(sizeof(long double) * imgSize);
+    imgBlurred = (long double*) malloc(sizeof(long double) * imgSize);
+  
+    if (rank == 0){
+        read_file_to_array(x, y, z, filename, img);
+    }
+
+    calculate_scatter_variables(size, rank, xLocals, x, y, z, sendcounts, displacements);
+
+    xLocal = xLocals[rank];
+    imgLocalSize = sendcounts[rank];
+
+    define_ghost_variables(y, z, rank, size, &ghostsAboveSize, &ghostsBelowSize, &xGhostsAbove, &xGhostsBelow);
+
+    imgLocal = (long double*) malloc(sizeof(long double) * (imgLocalSize + ghostsBelowSize + ghostsAboveSize));
+    imgLocalBlurred = (long double*) malloc(sizeof(long double) * (imgLocalSize + ghostsBelowSize + ghostsAboveSize));
+
+    MPI_Scatterv(img,
+                 sendcounts,
+                 displacements,
+                 MPI_LONG_DOUBLE,
+                 imgLocal + ghostsAboveSize,
+                 imgLocalSize,
+                 MPI_LONG_DOUBLE,
+                 0,
+                 MPI_COMM_WORLD);
+
+    get_ghosts(size, imgLocal, imgLocalSize, ghostsAboveSize, blurFactorSize);
 
     blur_image(xLocal + xGhostsBelow + xGhostsAbove, y, z,
                imgLocal,
