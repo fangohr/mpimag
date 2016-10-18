@@ -1,5 +1,8 @@
 /* To do
 change z to c
+variable names
+move everything out of main
+get rid of multiple arrays
 */
 
 #include <stdio.h>
@@ -33,10 +36,10 @@ int indices(int x, int y, int z, int i, int j, int k){
  * Parameters
  * ----------
  * filename: string of the txt filename
- * imageArray: long double, the c array where the data will be written to.
+ * img: long double, the c array where the data will be written to.
  *
  */
-void read_file_to_array(int x, int y, int z, char filename[], long double *imageArray)
+void read_file_to_array(int x, int y, int z, char filename[], long double *img)
 {
 	FILE *imagefile;
 
@@ -48,7 +51,7 @@ void read_file_to_array(int x, int y, int z, char filename[], long double *image
     for(i = 0; i < x; i++){
     	for(j = 0; j < y; j++){
     		for(k = 0; k < z; k++){
-    			fscanf(imagefile, "%Lf", &imageArray[indices(x, y, z, i, j, k)]);
+    			fscanf(imagefile, "%Lf", &img[indices(x, y, z, i, j, k)]);
     		}
     	}
     }
@@ -67,14 +70,14 @@ void read_file_to_array(int x, int y, int z, char filename[], long double *image
  *
  * Parameters
  * ----------
- * imageArray: the array containing the RGB colour matrix of the image.
+ * img: the array containing the RGB colour matrix of the image.
  * imageBlurred: the array which will contain the the blurred image data.
  *
  * Both arrays are 3 dimensional in the format (x,y,c), where x, y are
  * dimensions (in pixels) of the image and c are the number of RGB(A) colours
  * (3 for RGB and 4 for RGBA).
  */
-void blur_image(int x, int y, int z, long double *imageArray, long double *imageBlurred)
+void blur_image(int x, int y, int z, long double *img, long double *imageBlurred)
 {
 	int xi, yi, zi;
 	int xi_lower, xi_upper, yi_lower, yi_upper;
@@ -117,9 +120,9 @@ void blur_image(int x, int y, int z, long double *imageArray, long double *image
 	        // sum over RBG values for each pixel and the surrounding pixels.
 	        for(c = xi_lower; c < xi_upper; c++){
 	        	for (r = yi_lower; r < yi_upper; r++){
-	        		sumR += imageArray[indices(x, y, z, c, r, 0)];
-	        		sumG += imageArray[indices(x, y, z, c, r, 1)];
-	        		sumB += imageArray[indices(x, y, z, c, r, 2)];
+	        		sumR += img[indices(x, y, z, c, r, 0)];
+	        		sumG += img[indices(x, y, z, c, r, 1)];
+	        		sumB += img[indices(x, y, z, c, r, 2)];
 	        	}
 	        }
 
@@ -135,14 +138,14 @@ void blur_image(int x, int y, int z, long double *imageArray, long double *image
     }
 }
 
-void print_array(int x, int y, int z, long double *imageArray)
+void print_array(int x, int y, int z, long double *img)
 {
     int i, j, k;
 
     for(i = 0; i < x; i++){
     	for(j = 0; j < y; j++){
     		for(k = 0; k < z; k++){
-    			printf("%.18Lf ", imageArray[indices(x, y, z, i, j, k)]);
+    			printf("%.18Lf ", img[indices(x, y, z, i, j, k)]);
     		}
     	printf("\n");
     	}
@@ -163,9 +166,9 @@ void print_array(int x, int y, int z, long double *imageArray)
  * Parameters
  * ----------
  * filename: string of the txt filename
- * imageArray: long double, the c array to be written to the txt file. *
+ * img: long double, the c array to be written to the txt file. *
  */
-void write_array_to_file(int x, int y, int z, char filename[], long double *imageArray)
+void write_array_to_file(int x, int y, int z, char filename[], long double *img)
 {
 	FILE *imagefile;
 	int i, j, k;
@@ -175,7 +178,7 @@ void write_array_to_file(int x, int y, int z, char filename[], long double *imag
     for(i = 0; i < x; i++){
     	for(j = 0; j < y; j++){
     		for(k = 0; k < z; k++){
-    			fprintf(imagefile, "%.18Lf\n", imageArray[indices(x, y, z, i, j, k)]);
+    			fprintf(imagefile, "%.18Lf\n", img[indices(x, y, z, i, j, k)]);
     		}
     	}
     }
@@ -185,9 +188,7 @@ void write_array_to_file(int x, int y, int z, char filename[], long double *imag
 
 int main(int argc, char *argv[])
 {
-
     int size, rank;
-
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -196,25 +197,21 @@ int main(int argc, char *argv[])
 	char *filename = malloc(strlen(argv[1]) + 4 + 1);
 	char *filenameWrite = malloc(strlen(argv[1]) + 8 + 1);
 
-    int x, y, z, p;
-	long double *imageArray;
-	// long double *imageBlurred;
-    int *x_locals = (int*) malloc(sizeof(int) * size);
+    int x, y, z, xLocal, xGhostsAbove, xGhostsBelow;
+    int p, dispSum = 0;
+	
+    long double *img;
+    long double *imgBlurred;
+    long double *imgLocal;
+    long double *imgLocalBlurred;
+
+    int imgSize, imgLocalSize;
+    int ghostsAboveSize, ghostsBelowSize;
+    int blurFactorSize;
+
+    int *xLocals = (int*) malloc(sizeof(int) * size);
     int *sendcounts = (int*) malloc(sizeof(int) * size);
     int *displacements = (int*) malloc(sizeof(int) * size);
-    int dispSum = 0;
-    int x_local, recvCount;
-    long double *image_local;
-    long double *ghosts_above;
-    long double *ghosts_below;
-    // int ghostsBelowCount;
-    // int ghostsAboveCount;
-    long double *image_local_ghosts;
-    long double *image_local_blurred;
-    long double *image_blurred;
-    int x_local_ghosts;
-    int ghostsAboveCount;
-    int blurCount;
 
     // variables for car
     int ndims = 1;
@@ -234,54 +231,58 @@ int main(int argc, char *argv[])
     sprintf(filename, "%s.txt", argv[1]);
 
     // read image in on process 0.  
-    imageArray = (long double*) malloc(sizeof(long double) * x * y * z);
-    image_blurred = (long double*) malloc(sizeof(long double) * x * y * z);
+    imgSize = x * y * z;
+    blurFactorSize = blur_factor * y * z;
+    img = (long double*) malloc(sizeof(long double) * imgSize);
+    imgBlurred = (long double*) malloc(sizeof(long double) * imgSize);
   
     if (rank == 0){
-        read_file_to_array(x, y, z, filename, imageArray);
+        read_file_to_array(x, y, z, filename, img);
     }
 
     for (p = 0; p < size; p++){ 
-        x_locals[p] = x / size; // floored integer division required!
+        xLocals[p] = x / size; // floored integer division required!
         if (p < x % size){
             if (rank == 0){
             }
-            x_locals[p] += 1;
+            xLocals[p] += 1;
         }
-        sendcounts[p] = x_locals[p] * y * z;
+        sendcounts[p] = xLocals[p] * y * z;
         displacements[p] = dispSum;
         dispSum += sendcounts[p];
     }
 
-    x_local = x_locals[rank];
-    recvCount = sendcounts[rank];
-    blurCount = blur_factor * y * z;
-    // printf("%d ", sendcounts[rank]);
+    xLocal = xLocals[rank];
+    imgLocalSize = sendcounts[rank];
 
-    image_local = (long double*) malloc(sizeof(long double) * recvCount);
+    if (rank == 0){
+        xGhostsAbove = 0;
+        xGhostsBelow = blur_factor;
+    }
+    else if (rank == (size - 1)){
+        xGhostsAbove = blur_factor;
+        xGhostsBelow = 0;
+    }
+    else {
+        xGhostsAbove = blur_factor;
+        xGhostsBelow = blur_factor;
+    }
 
-    MPI_Scatterv(imageArray,
+    ghostsAboveSize = xGhostsAbove * y * z;
+    ghostsBelowSize = xGhostsBelow * y * z;  
+
+    imgLocal = (long double*) malloc(sizeof(long double) * (imgLocalSize + ghostsBelowSize + ghostsAboveSize));
+    imgLocalBlurred = (long double*) malloc(sizeof(long double) * (imgLocalSize + ghostsBelowSize + ghostsAboveSize));
+
+    MPI_Scatterv(img,
                  sendcounts,
                  displacements,
                  MPI_LONG_DOUBLE,
-                 image_local,
-                 recvCount,
+                 imgLocal + ghostsAboveSize,
+                 imgLocalSize,
                  MPI_LONG_DOUBLE,
                  0,
                  MPI_COMM_WORLD);
-
-    // if (rank == 2){
-    //     write_array_to_file(x_local, y, z, filenameWrite, image_local);
-    //     printf("saved\n");
-    // }
-
-    if (rank > 0){
-        ghosts_above = (long double*) malloc(sizeof(long double) * blurCount);
-    }
-    if (rank < (size - 1)){
-        ghosts_below = (long double*) malloc(sizeof(long double) * blurCount);
-        // ghosts_below = NULL;
-    }
 
     ndims = 1;
     dim[0] = size;
@@ -297,89 +298,40 @@ int main(int argc, char *argv[])
 
     MPI_Cart_shift(cart_comm, 0, 1, &above_rank, &below_rank);
 
-    MPI_Sendrecv(&image_local[indices(x_local, y, z, x_local - blur_factor, 0, 0)],
-                 blurCount,
+    MPI_Sendrecv(imgLocal + ghostsAboveSize + imgLocalSize - blurFactorSize,
+                 blurFactorSize,
                  MPI_LONG_DOUBLE,
                  below_rank,
                  0,
-                 ghosts_above,
-                 blurCount,
+                 imgLocal,
+                 blurFactorSize,
                  MPI_LONG_DOUBLE,
                  above_rank,
                  0,
                  cart_comm,
                  &status);
 
-    MPI_Sendrecv(image_local,
-                 blurCount,
+    MPI_Sendrecv(imgLocal + ghostsAboveSize,
+                 blurFactorSize,
                  MPI_LONG_DOUBLE,
                  above_rank,
                  1,
-                 ghosts_below,
-                 blurCount,
+                 imgLocal + ghostsAboveSize + imgLocalSize,
+                 blurFactorSize,
                  MPI_LONG_DOUBLE,
                  below_rank,
                  1,
                  cart_comm,
                  &status);
 
-    if (rank == 0){
-        image_local_ghosts = (long double*) malloc(sizeof(long double) * (blurCount + recvCount));
-        image_local_blurred = (long double*) malloc(sizeof(long double) * (blurCount + recvCount));
-        x_local_ghosts = x_local + blur_factor;
-        ghostsAboveCount = 0;
-        memcpy(image_local_ghosts,
-               image_local,
-               recvCount * sizeof(long double));
-        memcpy(image_local_ghosts + recvCount,
-               ghosts_below,
-               blurCount * sizeof(long double));
-    }
-    else if (rank == (size - 1)){
-        image_local_ghosts = (long double*) malloc(sizeof(long double) * (blurCount + recvCount));
-        image_local_blurred = (long double*) malloc(sizeof(long double) * (blurCount + recvCount));
-        x_local_ghosts = x_local + blur_factor;
-        ghostsAboveCount = blur_factor * y * z;
-        memcpy(image_local_ghosts,
-               ghosts_above,
-               blurCount * sizeof(long double));
-        memcpy(image_local_ghosts + blurCount,
-               image_local,
-               recvCount * sizeof(long double));
-    }
-    else {
-        image_local_ghosts = (long double*) malloc(sizeof(long double) * (blurCount + blurCount + recvCount));
-        image_local_blurred = (long double*) malloc(sizeof(long double) * (blurCount + blurCount + recvCount));
-        x_local_ghosts = x_local + blur_factor + blur_factor;
-        ghostsAboveCount = blur_factor * y * z;
-        memcpy(image_local_ghosts,
-               ghosts_above,
-               blurCount * sizeof(long double));
-        memcpy(image_local_ghosts + blurCount,
-               image_local,
-               recvCount * sizeof(long double));
-        memcpy(image_local_ghosts + blurCount + recvCount,
-               ghosts_below,
-               blurCount * sizeof(long double));
-    }
-    // if (rank == 1){
-    //     write_array_to_file(blur_factor, y, z, filenameWrite, ghosts_above);
-    //     printf("saved\n");
-    // }
+    blur_image(xLocal + xGhostsBelow + xGhostsAbove, y, z,
+               imgLocal,
+               imgLocalBlurred);
 
-    blur_image(x_local_ghosts, y, z,
-               image_local_ghosts,
-               image_local_blurred);
-
-    // if (rank == 1){
-    //     write_array_to_file(x_local_ghosts, y, z, filenameWrite, image_local_blurred);
-    //     printf("saved\n");
-    // }
-
-    MPI_Gatherv(image_local_blurred + ghostsAboveCount,
-               recvCount,
+    MPI_Gatherv(imgLocalBlurred + ghostsAboveSize,
+               imgLocalSize,
                MPI_LONG_DOUBLE,
-               image_blurred,
+               imgBlurred,
                sendcounts,
                displacements,
                MPI_LONG_DOUBLE,
@@ -387,21 +339,19 @@ int main(int argc, char *argv[])
                MPI_COMM_WORLD);
 
     if (rank == 0){
-        write_array_to_file(x, y, z, filenameWrite, image_blurred);
+        write_array_to_file(x, y, z, filenameWrite, imgBlurred);
         printf("saved\n");
     }
 
-    // ghosts_below = NULL;
-    // free(ghosts_below);
-
-    free(imageArray);
     free(filename);
     free(filenameWrite);
-    free(x_locals);
+    free(img);
+    free(imgBlurred);
+    free(imgLocal);
+    free(imgLocalBlurred);
+    free(xLocals);
     free(sendcounts);
     free(displacements);
-    free(image_local);
-    free(image_local_ghosts);
 
     MPI_Finalize();
 
