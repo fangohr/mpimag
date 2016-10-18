@@ -186,6 +186,23 @@ void write_array_to_file(int x, int y, int z, char filename[], long double *img)
 	fclose(imagefile);
 }
 
+void calculate_scatter_variables(int size, int rank, int* xLocals, int x, int y, int z, int* sendcounts, int* displacements){
+    int p;
+    int dispSum = 0;
+
+    for (p = 0; p < size; p++){ 
+        xLocals[p] = x / size; // floored integer division required!
+        if (p < x % size){
+            if (rank == 0){
+            }
+            xLocals[p] += 1;
+        }
+        sendcounts[p] = xLocals[p] * y * z;
+        displacements[p] = dispSum;
+        dispSum += sendcounts[p];
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int size, rank;
@@ -198,7 +215,6 @@ int main(int argc, char *argv[])
 	char *filenameWrite = malloc(strlen(argv[1]) + 8 + 1);
 
     int x, y, z, xLocal, xGhostsAbove, xGhostsBelow;
-    int p, dispSum = 0;
 	
     long double *img;
     long double *imgBlurred;
@@ -240,17 +256,7 @@ int main(int argc, char *argv[])
         read_file_to_array(x, y, z, filename, img);
     }
 
-    for (p = 0; p < size; p++){ 
-        xLocals[p] = x / size; // floored integer division required!
-        if (p < x % size){
-            if (rank == 0){
-            }
-            xLocals[p] += 1;
-        }
-        sendcounts[p] = xLocals[p] * y * z;
-        displacements[p] = dispSum;
-        dispSum += sendcounts[p];
-    }
+    calculate_scatter_variables(size, rank, xLocals, x, y, z, sendcounts, displacements);
 
     xLocal = xLocals[rank];
     imgLocalSize = sendcounts[rank];
