@@ -216,6 +216,17 @@ void calculate_scatterv_variables(int* xLocals, int x, int y, int z, int* sendco
     }
 }
 
+/*
+ * Function: define_ghost_variables
+ * --------------------------------
+ * Function to determine the number of ghost cells above and below the local image.
+
+ * Parameters
+ * ----------
+ * ghostsAboveSize: length of array of all ghosts above the local image.
+ * xGhostsAbove: x value of the ghosts cells above the local image (e.g. the blur_factor or 0
+ * if the local image is from the top of the global image).
+ */
 void define_ghost_variables(int y, int z, int* ghostsAboveSize, int* ghostsBelowSize, int* xGhostsAbove, int* xGhostsBelow) {
     int size, rank;
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -239,6 +250,12 @@ void define_ghost_variables(int y, int z, int* ghostsAboveSize, int* ghostsBelow
     *ghostsBelowSize = *xGhostsBelow * y * z;
 }
 
+/*
+ * Function: get_ghosts
+ * --------------------
+ * Function to get all ghost data from neighbouring processes
+ * (Halo SendRecv)
+ */
 void get_ghosts(long double* imgLocal, int imgLocalSize, int ghostsAboveSize, int blurFactorSize) {
     int size;
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -256,15 +273,18 @@ void get_ghosts(long double* imgLocal, int imgLocalSize, int ghostsAboveSize, in
     period[0] = 0; //bool
     reorder = 0; //bool
 
+    // Create new Cart with topological information of
+    // which processes need to speak to which other
+    // processes
     MPI_Cart_create(MPI_COMM_WORLD,
                     ndims,
                     dim,
                     period,
                     reorder,
                     &cart_comm);
-
     MPI_Cart_shift(cart_comm, 0, 1, &above_rank, &below_rank);
 
+    // Get ghost cell data from neighbouring processes via Halo Exchange
     MPI_Sendrecv(imgLocal + ghostsAboveSize + imgLocalSize - blurFactorSize,
                  blurFactorSize,
                  MPI_LONG_DOUBLE,
@@ -306,12 +326,8 @@ int main(int argc, char *argv[])
 	char *filenameWrite = malloc(strlen(argv[1]) + 8 + 1);
 
     int x, y, z, xLocal, xGhostsAbove, xGhostsBelow;
-	
     long double *img, *imgBlurred, *imgLocal, *imgLocalBlurred;
-
-    int imgSize, imgLocalSize;
-    int ghostsAboveSize, ghostsBelowSize;
-    int blurFactorSize;
+    int imgSize, imgLocalSize ghostsAboveSize, ghostsBelowSize, blurFactorSize;
 
     int *xLocals = (int*) malloc(sizeof(int) * size); // array containing sizes of x on
                                                       // each process. Array index
@@ -343,15 +359,17 @@ int main(int argc, char *argv[])
 
     // calculate data required for scatterv of entire image to other processes.
     calculate_scatterv_variables(xLocals, x, y, z, sendcounts, displacements);
-
     xLocal = xLocals[rank];
     imgLocalSize = sendcounts[rank];
 
+    // Define the number of ghosts cells (and amount of data) above and below each process
     define_ghost_variables(y, z, &ghostsAboveSize, &ghostsBelowSize, &xGhostsAbove, &xGhostsBelow);
 
+    // Allocate memory for Local images (normal and blurred) (ghost cell data also contained in these arrays)
     imgLocal = (long double*) malloc(sizeof(long double) * (imgLocalSize + ghostsBelowSize + ghostsAboveSize));
     imgLocalBlurred = (long double*) malloc(sizeof(long double) * (imgLocalSize + ghostsBelowSize + ghostsAboveSize));
 
+    // Scatter parts of full image on process 0 to all processes
     MPI_Scatterv(img,
                  sendcounts,
                  displacements,
@@ -362,12 +380,15 @@ int main(int argc, char *argv[])
                  0,
                  MPI_COMM_WORLD);
 
+    // Get ghost cell data
     get_ghosts(imgLocal, imgLocalSize, ghostsAboveSize, blurFactorSize);
 
+    // Blur the image
     blur_image(xLocal + xGhostsBelow + xGhostsAbove, y, z,
                imgLocal,
                imgLocalBlurred);
 
+    // Gather all local blurred images onto process 0 to form full blurred image
     MPI_Gatherv(imgLocalBlurred + ghostsAboveSize,
                imgLocalSize,
                MPI_LONG_DOUBLE,
@@ -378,6 +399,7 @@ int main(int argc, char *argv[])
                0,
                MPI_COMM_WORLD);
 
+    // Write blurred image data to file
     if (rank == 0){
         write_array_to_file(x, y, z, filenameWrite, imgBlurred);
         printf("saved\n");
