@@ -226,6 +226,7 @@ void get_ghosts(int size, long double* imgLocal, int imgLocalSize, int ghostsAbo
     int period[ndims];
     int reorder;
     MPI_Comm cart_comm;
+    MPI_Status status;
 
     int above_rank, below_rank;
 
