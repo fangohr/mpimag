@@ -92,45 +92,6 @@ if rank < (size - 1):
 if rank == size - 1:
     ghost_below = np.empty((0, y, 3))
 
-
-# # 'Rebecca' method for data swapping
-# #-----------------------------------
-# # Send and recv data swaps
-# # TODO: explain how this works!
-# if rank % 2 == 0 and rank != (size-1):
-#     comm.Sendrecv(sendbuf=image_local[-blur_factor:],
-#                     dest=rank+1,
-#                     sendtag=rank,
-#                     recvbuf=ghost_below,
-#                     source=rank+1,
-#                     recvtag=rank+1)
-
-# if rank % 2 == 1 and rank != 0:
-#     comm.Sendrecv(sendbuf=image_local[0:blur_factor],
-#                     dest=rank-1,
-#                     sendtag=rank,
-#                     recvbuf=ghost_above,
-#                     source=rank-1,
-#                     recvtag=rank-1)
-
-# comm.Barrier()
-
-# if rank % 2 == 1 and rank != (size-1):
-#     comm.Sendrecv(sendbuf=image_local[-blur_factor:],
-#                     dest=rank+1,
-#                     sendtag=rank,
-#                     recvbuf=ghost_below,
-#                     source=rank+1,
-#                     recvtag=rank+1)
-
-# if rank % 2 == 0 and rank != 0:
-#     comm.Sendrecv(sendbuf=image_local[0:blur_factor],
-#                     dest=rank-1,
-#                     sendtag=rank,
-#                     recvbuf=ghost_above,
-#                     source=rank-1,
-#                     recvtag=rank-1)
-
 # Halo method for data swapping
 #------------------------------
 
