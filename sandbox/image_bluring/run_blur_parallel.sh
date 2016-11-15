@@ -1,6 +1,6 @@
 #!/bin/bash
 
-filename=start
+filename=images/start
 # filename=astronaut
 
 read x y z <<< $(echo `python image_save_as_text.py $filename`)
