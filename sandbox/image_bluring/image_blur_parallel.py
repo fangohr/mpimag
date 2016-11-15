@@ -22,14 +22,14 @@ if rank == 0:
     # need to store image with dtype=float64 (this corresponds to MPI.DOUBLE),
     # as there are issues with scattering data with dtype=uint8
 
-    # image_full = astronaut().astype('float64')
-    image_full = io.imread("start.png").astype('float64')
+    # img = astronaut().astype('float64')
+    img = io.imread("images/start.png").astype('float64')
 else:
-    image_full = None
+    img = None
 
 # broadcast image dimensions to other processes
 if rank == 0:
-    dims = image_full.shape[0:2]
+    dims = img.shape[0:2]
 else:
     dims = np.empty(2, dtype='i')
 
@@ -51,91 +51,86 @@ x,y = dims
 
 # array detailing how many rows each process owns, where the index of the
 # array, corresponds to the process no.
-x_locals = np.ones(size, dtype = 'i') * (x // size)
+xLocals = np.ones(size, dtype = 'i') * (x // size)
 # distribute the n remaining rows across the first n processes
 remaining_rows = x % size
-x_locals[0:remaining_rows] += 1
+xLocals[0:remaining_rows] += 1
 
 # array which details how much data is sent to each process
-sendcounts = x_locals * y * 3
-# array which details the displacement along image_full, from which the data
+sendcounts = xLocals * y * 3
+# array which details the displacement along img, from which the data
 # for each process if scattered from
 displacements = np.concatenate(([0], np.cumsum([sendcounts])[0:-1]),
                                 axis=0)
 
-# create an empty array on each process for which to scatter the section of
-# the image into
-x_local = x_locals[rank]
-image_local = np.empty((x_local, y, 3))
-
-# Scatter the data
-comm.Scatterv([image_full, sendcounts, displacements, MPI.DOUBLE],
-               image_local,
-               root=0)
-
 #-----------------------------------------------------------------------------
-# Get required data held on other processes
+# Define number of ghost points
 #-----------------------------------------------------------------------------
-# create empty arrays ghosts points 'above' and 'below' the local_image
+# Define number or rows of ghosts above and below local image.
 
 # There are no possible ghost points above image process zero as this is the
 # top of the original image.
-if rank > 0:
-    ghost_above = np.empty((blur_factor, y, 3))
-    num_ghosts_above = blur_factor
-if rank == 0:
-    ghost_above = np.empty((0, y, 3))
-    num_ghosts_above = 0
-# likewise, no ghost points below image stored on highest numbered process
-if rank < (size - 1):
-    ghost_below = np.empty((blur_factor, y, 3))
-if rank == size - 1:
-    ghost_below = np.empty((0, y, 3))
 
+if (rank == 0):
+    xGhostsAbove = 0
+    xGhostsBelow = blur_factor
+
+elif (rank == (size - 1)):
+    xGhostsAbove = blur_factor
+    xGhostsBelow = 0
+
+else:
+    xGhostsAbove = blur_factor
+    xGhostsBelow = blur_factor
+
+#-----------------------------------------------------------------------------
+# Create local image array (and populate with relevant data)
+#-----------------------------------------------------------------------------
+# create an empty array on each process for which to scatter the section of
+# the image into.
+# This array also will include the ghost points
+xLocal = xLocals[rank]
+imgLocal = np.empty((xGhostsAbove + xLocal + xGhostsBelow, y, 3))
+
+# Scatter the data
+comm.Scatterv([img, sendcounts, displacements, MPI.DOUBLE],
+               imgLocal[xGhostsAbove:],
+               root=0)
+
+#-----------------------------------------------------------------------------
 # Halo method for data swapping
-#------------------------------
-
+#-----------------------------------------------------------------------------
 # define the ranks which lie 'above' and 'below'. Assume there is no
 # periodicity
 cart_comm = comm.Create_cart([size], periods=[0])
 above_rank, below_rank = cart_comm.Shift(0, 1)
-
 # Halo part one. Send the bottom part of image to rank 'below'. The rank below
 # will use this data a ghost pixels for the top of it's image.
-cart_comm.Sendrecv(sendbuf=image_local[-blur_factor:],
+
+cart_comm.Sendrecv(sendbuf=imgLocal[xGhostsAbove + xLocal - blur_factor : xGhostsAbove + xLocal],
                    dest=below_rank,
-                   recvbuf=ghost_above,
+                   recvbuf=imgLocal[0:xGhostsAbove],
                    source=above_rank)
 
 # Halo part two: and repeat in opposite direction
-cart_comm.Sendrecv(sendbuf=image_local[0:blur_factor],
+cart_comm.Sendrecv(sendbuf=imgLocal[xGhostsAbove : xGhostsAbove + blur_factor],
                    dest=above_rank,
-                   recvbuf=ghost_below,
+                   recvbuf=imgLocal[xGhostsAbove + xLocal:],
                    source=below_rank)
-
-
-# create array containing local image plus the surrounding ghost pixels
-image_local_ghosts = np.concatenate((ghost_above, image_local, ghost_below))
 
 #-----------------------------------------------------------------------------
 # Blur, plot and save local data
 #-----------------------------------------------------------------------------
 
 # blurring including blurred ghosts
-image_local_ghosts_blurred = blur(image_local_ghosts, blur_factor=blur_factor)
-
-# blurred image without ghosts
-image_local_blurred = \
-    image_local_ghosts_blurred[num_ghosts_above: x_local + num_ghosts_above
-                               :,
-                               :]
+imgLocalBlurred = blur(imgLocal, blur_factor=blur_factor)
 
 f, axarr = plt.subplots(2)
 
-axarr[0].imshow(image_local.astype('uint8'))
+axarr[0].imshow(imgLocal.astype('uint8'))
 axarr[0].set_title('Original Image, rank {}'.format(rank))
 
-axarr[1].imshow(image_local_blurred.astype('uint8'))
+axarr[1].imshow(imgLocalBlurred.astype('uint8'))
 axarr[1].set_title('Blurred Image, rank {}'.format(rank))
 
 # turn off axis
@@ -153,33 +148,34 @@ f.savefig("image_blur_parallel_{}".format(rank))
 
 # define array to gather the blurred image data into
 if rank == 0:
-    image_blurred_gathered = np.empty((x, y, 3))
+    imgBlurred = np.empty((x, y, 3))
 else:
-    image_blurred_gathered = None
+    imgBlurred = None
 
 # sendcounts and displacements already defined from before
 
 # Gather the data
-comm.Gatherv(image_local_blurred, [image_blurred_gathered,
-                                   sendcounts,
-                                   displacements,
-                                   MPI.DOUBLE], root=0)
+comm.Gatherv(imgLocalBlurred[xGhostsAbove : xGhostsAbove + xLocal], [imgBlurred,
+                                                sendcounts,
+                                                displacements,
+                                                MPI.DOUBLE], root=0)
+
 # compare the two arrays: the image blurred in serial and the image blurred
 # in parallel then gathered onto process 0.
 if rank == 0:
     # blur the original image in serial
-    image_blurred_serial = blur(image_full, blur_factor=blur_factor)
+    imBlurredSerial = blur(img, blur_factor=blur_factor)
     # check it is the same as the image blurred in parallel
-    assert((image_blurred_serial == image_blurred_gathered).all())
+    assert((imBlurredSerial == imgBlurred).all())
 
 # plot complete images (original and blurred)
 if rank == 0:
     f, axarr = plt.subplots(2)
 
-    axarr[0].imshow(image_full.astype('uint8'))
+    axarr[0].imshow(img.astype('uint8'))
     axarr[0].set_title('Original Image, rank {}'.format(rank))
 
-    axarr[1].imshow(image_blurred_gathered.astype('uint8'))
+    axarr[1].imshow(imgBlurred.astype('uint8'))
     axarr[1].set_title('Blurred Image, rank {}'.format(rank))
 
     # turn off axis
