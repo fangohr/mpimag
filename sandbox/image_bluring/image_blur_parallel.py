@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from skimage import io
 from mpi4py import MPI
 import numpy as np
+import sys
 
 from blur import blur
 
@@ -17,13 +18,15 @@ blur_factor = 4
 #-----------------------------------------------------------------------------
 # note: could read the image on all processes, but reading in on one and then
 # cattering the array is a good exercise in itself.
+imageFilename = sys.argv[1]
+
 if rank == 0:
     # from skimage.data import astronaut
     # need to store image with dtype=float64 (this corresponds to MPI.DOUBLE),
     # as there are issues with scattering data with dtype=uint8
 
     # img = astronaut().astype('float64')
-    img = io.imread("images/start.png").astype('float64')
+    img = io.imread("images/{}.png".format(imageFilename)).astype('float64')
 else:
     img = None
 
@@ -139,7 +142,7 @@ axarr[0].get_yaxis().set_visible(False)
 axarr[1].get_xaxis().set_visible(False)
 axarr[1].get_yaxis().set_visible(False)
 
-f.savefig("image_blur_parallel_{}".format(rank))
+f.savefig("images/python/image_blur_parallel_{}".format(rank))
 
 #-----------------------------------------------------------------------------
 # Test!
@@ -184,4 +187,4 @@ if rank == 0:
     axarr[1].get_xaxis().set_visible(False)
     axarr[1].get_yaxis().set_visible(False)
 
-    f.savefig("image_blurred_gathered.png".format(rank))
+    f.savefig("images/python/image_blurred_gathered.png".format(rank))
