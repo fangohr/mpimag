@@ -1,6 +1,6 @@
 from __future__ import division
 import matplotlib.pyplot as plt
-from skimage import io
+import matplotlib.image as mpimg
 from mpi4py import MPI
 import numpy as np
 import sys
@@ -26,7 +26,7 @@ if rank == 0:
     # as there are issues with scattering data with dtype=uint8
 
     # img = astronaut().astype('float64')
-    img = io.imread("images/{}.png".format(imageFilename)).astype('float64')
+    img = mpimg.imread("images/{}.png".format(imageFilename)).astype('float64')
 else:
     img = None
 
@@ -130,10 +130,10 @@ imgLocalBlurred = blur(imgLocal, blur_factor=blur_factor)
 
 f, axarr = plt.subplots(2)
 
-axarr[0].imshow(imgLocal.astype('uint8'))
+axarr[0].imshow(imgLocal)
 axarr[0].set_title('Original Image, rank {}'.format(rank))
 
-axarr[1].imshow(imgLocalBlurred.astype('uint8'))
+axarr[1].imshow(imgLocalBlurred)
 axarr[1].set_title('Blurred Image, rank {}'.format(rank))
 
 # turn off axis
@@ -175,10 +175,10 @@ if rank == 0:
 if rank == 0:
     f, axarr = plt.subplots(2)
 
-    axarr[0].imshow(img.astype('uint8'))
+    axarr[0].imshow(img)
     axarr[0].set_title('Original Image, rank {}'.format(rank))
 
-    axarr[1].imshow(imgBlurred.astype('uint8'))
+    axarr[1].imshow(imgBlurred)
     axarr[1].set_title('Blurred Image, rank {}'.format(rank))
 
     # turn off axis
