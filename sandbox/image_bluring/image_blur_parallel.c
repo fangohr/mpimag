@@ -327,7 +327,7 @@ int main(int argc, char *argv[])
 
     int x, y, z, xLocal, xGhostsAbove, xGhostsBelow;
     long double *img, *imgBlurred, *imgLocal, *imgLocalBlurred;
-    int imgSize, imgLocalSize ghostsAboveSize, ghostsBelowSize, blurFactorSize;
+    int imgSize, imgLocalSize, ghostsAboveSize, ghostsBelowSize, blurFactorSize;
 
     int *xLocals = (int*) malloc(sizeof(int) * size); // array containing sizes of x on
                                                       // each process. Array index
